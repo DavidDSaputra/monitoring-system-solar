@@ -8,7 +8,9 @@ void main() {
   test('Dump raw inverter record', () async {
     HttpOverrides.global = null;
     dotenv.loadFromString(
-      envString: File('c:/laragon/www/jarwinn-monitoring/.env').readAsStringSync(),
+      envString: File(
+        'c:/laragon/www/jarwinn-monitoring/.env',
+      ).readAsStringSync(),
     );
 
     final client = SolisApiClient();

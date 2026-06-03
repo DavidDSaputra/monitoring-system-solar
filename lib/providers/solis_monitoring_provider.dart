@@ -24,7 +24,7 @@ class SolisMonitoringProvider implements MonitoringProvider {
   String get displayName => 'Solis';
 
   @override
-  Future<List<Station>> getPlants() {
+  Future<List<Station>> getPlants({bool forceRefresh = false}) {
     return _client.getAllStations();
   }
 

@@ -39,10 +39,13 @@ test_api.dart
 .pub-cache/
 .pub/
 /build/
+/dist/
 /coverage/
 
 # Server-side runtime cache
 /api/cache/
+!/api/cache/.htaccess
+!/api/cache/.gitkeep
 
 # Symbolication related
 app.*.symbols

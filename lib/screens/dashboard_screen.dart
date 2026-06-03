@@ -188,6 +188,13 @@ class _DashboardScreenState extends State<DashboardScreen>
         _collectorsLoaded = true;
         _lastPlantRefresh = DateTime.now();
       });
+      unawaited(
+        _loadStations(
+          showLoading: false,
+          silentError: true,
+          forceRefresh: true,
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -206,6 +213,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   Future<void> _loadStations({
     bool showLoading = true,
     bool silentError = false,
+    bool? forceRefresh,
   }) async {
     if (showLoading && mounted) {
       setState(() {
@@ -214,7 +222,9 @@ class _DashboardScreenState extends State<DashboardScreen>
       });
     }
     try {
-      final s = await _repository.getPlants(forceRefresh: showLoading);
+      final s = await _repository.getPlants(
+        forceRefresh: forceRefresh ?? showLoading,
+      );
       if (mounted) {
         setState(() {
           _stations = s;

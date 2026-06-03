@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 
-import '../../config/app_constants.dart';
+import '../../config/api_base_urls.dart';
+import '../../models/huawei/huawei_alarm.dart';
 import '../../models/huawei/huawei_device.dart';
 import '../../models/huawei/huawei_plant.dart';
 
@@ -13,6 +13,7 @@ enum MonitoringSourceFilter { all, solis, huawei }
 class HuaweiMonitoringService {
   final List<String> _baseUrls;
   final http.Client _httpClient;
+  static final Map<String, dynamic> _lastGoodData = {};
 
   HuaweiMonitoringService({String? baseUrl, http.Client? httpClient})
     : _baseUrls = _resolveBaseUrls(baseUrl),
@@ -40,15 +41,33 @@ class HuaweiMonitoringService {
     return _list(data).map(HuaweiDevice.fromJson).toList();
   }
 
+  Future<List<HuaweiAlarm>> getAlarms({
+    String? plantCode,
+    bool historical = false,
+  }) async {
+    final query = <String, String>{
+      if (plantCode?.isNotEmpty == true) 'plantCode': plantCode!,
+      if (historical) 'historical': 'true',
+    };
+    final data = await _get('huawei/alarms.php', query);
+    return _list(data).map(HuaweiAlarm.fromJson).toList();
+  }
+
   Future<dynamic> _get(String path, [Map<String, String>? query]) async {
     Object? lastError;
+    final cacheKey = '$path:${jsonEncode(query ?? const <String, String>{})}';
 
-    for (final baseUrl in _baseUrls) {
+    for (final baseUrl in prioritizeMonitoringBaseUrls(_baseUrls)) {
       try {
         final uri = Uri.parse('$baseUrl/$path').replace(queryParameters: query);
         final response = await _httpClient
             .get(uri)
-            .timeout(const Duration(seconds: 12));
+            .timeout(
+              monitoringApiTimeoutFor(
+                baseUrl,
+                fallback: const Duration(seconds: 6),
+              ),
+            );
         final decoded = jsonDecode(response.body);
 
         if (decoded is! Map<String, dynamic>) {
@@ -63,10 +82,16 @@ class HuaweiMonitoringService {
           );
         }
 
+        rememberMonitoringBaseUrl(baseUrl);
+        _lastGoodData[cacheKey] = decoded['data'];
         return decoded['data'];
       } catch (e) {
         lastError = e;
       }
+    }
+
+    if (_lastGoodData.containsKey(cacheKey)) {
+      return _lastGoodData[cacheKey];
     }
 
     if (lastError is HuaweiMonitoringException) throw lastError;
@@ -76,20 +101,7 @@ class HuaweiMonitoringService {
   void dispose() => _httpClient.close();
 
   static List<String> _resolveBaseUrls(String? baseUrl) {
-    final configured = baseUrl ?? dotenv.env['MONITORING_API_BASE_URLS'];
-    final rawUrls = configured?.trim().isNotEmpty == true
-        ? configured!.split(',')
-        : [
-            dotenv.env['MONITORING_API_BASE_URL'] ??
-                AppConstants.defaultMonitoringApiBaseUrl,
-          ];
-
-    final urls = rawUrls
-        .map((url) => url.trim().replaceFirst(RegExp(r'/+$'), ''))
-        .where((url) => url.isNotEmpty)
-        .toSet()
-        .toList();
-    return urls.isEmpty ? [AppConstants.defaultMonitoringApiBaseUrl] : urls;
+    return resolveMonitoringApiBaseUrls(overrideBaseUrl: baseUrl);
   }
 
   static List<Map<String, dynamic>> _list(dynamic data) {

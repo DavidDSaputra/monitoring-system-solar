@@ -27,9 +27,10 @@ class _SplashScreenState extends State<SplashScreen>
       parent: _fadeController,
       curve: Curves.easeOut,
     );
-    _slideAnimation = Tween<double>(begin: 30, end: 0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
-    );
+    _slideAnimation = Tween<double>(
+      begin: 30,
+      end: 0,
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
     _fadeController.forward();
     _goToLogin();
   }

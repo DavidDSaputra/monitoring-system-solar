@@ -14,8 +14,8 @@ class PlantCard extends StatelessWidget {
     final statusColor = station.isOnline
         ? AppColors.online
         : station.isAlarm
-            ? AppColors.alarm
-            : AppColors.offline;
+        ? AppColors.alarm
+        : AppColors.offline;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -59,8 +59,8 @@ class PlantCard extends StatelessWidget {
                           station.isOnline
                               ? Icons.bolt_rounded
                               : station.isAlarm
-                                  ? Icons.warning_rounded
-                                  : Icons.power_off_rounded,
+                              ? Icons.warning_rounded
+                              : Icons.power_off_rounded,
                           size: 11,
                           color: statusColor,
                         ),
@@ -83,7 +83,8 @@ class PlantCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          if (station.addr != null && station.addr!.isNotEmpty) ...[
+                          if (station.addr != null &&
+                              station.addr!.isNotEmpty) ...[
                             const SizedBox(height: 3),
                             Text(
                               station.addr!,
@@ -115,14 +116,22 @@ class PlantCard extends StatelessWidget {
                     ),
                     Expanded(
                       child: _StatItem(
-                        value: station.power?.toStringAsFixed(station.power != null && station.power! < 10 ? 2 : 1) ?? '0',
+                        value:
+                            station.power?.toStringAsFixed(
+                              station.power != null && station.power! < 10
+                                  ? 2
+                                  : 1,
+                            ) ??
+                            '0',
                         unit: station.powerStr ?? 'kW',
                         label: 'Power',
                       ),
                     ),
                     Expanded(
                       child: _StatItem(
-                        value: station.capacity.toStringAsFixed(station.capacity < 10 ? 2 : 1),
+                        value: station.capacity.toStringAsFixed(
+                          station.capacity < 10 ? 2 : 1,
+                        ),
                         unit: station.capacityStr ?? 'kWp',
                         label: 'Capacity',
                       ),
@@ -135,7 +144,9 @@ class PlantCard extends StatelessWidget {
                 Row(
                   children: [
                     Icon(
-                      station.isOnline ? Icons.sync_rounded : Icons.sync_disabled_rounded,
+                      station.isOnline
+                          ? Icons.sync_rounded
+                          : Icons.sync_disabled_rounded,
                       size: 13,
                       color: AppColors.textTertiary,
                     ),
@@ -143,20 +154,33 @@ class PlantCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         '${station.isOnline ? "" : "Offline Time:"}${station.formattedUpdateTime}',
-                        style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textTertiary,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.4),
+                        ),
                       ),
-                      child: const Text('More',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                          color: AppColors.primary)),
+                      child: const Text(
+                        'More',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -211,8 +235,10 @@ class _StatItem extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 2),
-        Text(label,
-          style: const TextStyle(fontSize: 10, color: AppColors.textTertiary)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 10, color: AppColors.textTertiary),
+        ),
       ],
     );
   }

@@ -111,3 +111,56 @@ function huawei_normalize_device(array $device): array
         'raw' => $device,
     ];
 }
+
+function huawei_normalize_alarm(array $alarm): array
+{
+    $level = (int) huawei_pick($alarm, ['lev', 'level', 'severity'], 0);
+    $raiseTime = huawei_pick($alarm, ['raiseTime', 'occurTime', 'occurrenceTime']);
+
+    return [
+        'source' => 'huawei',
+        'alarmId' => (string) huawei_pick($alarm, ['alarmId', 'id'], ''),
+        'alarmName' => (string) huawei_pick($alarm, ['alarmName', 'name'], 'Unknown alarm'),
+        'severity' => huawei_alarm_severity($level),
+        'severityLevel' => $level,
+        'plantName' => (string) huawei_pick($alarm, ['stationName', 'plantName'], ''),
+        'plantCode' => (string) huawei_pick($alarm, ['stationCode', 'plantCode'], ''),
+        'deviceType' => (string) huawei_pick($alarm, ['devTypeId', 'deviceType'], ''),
+        'deviceName' => (string) huawei_pick($alarm, ['devName', 'deviceName'], ''),
+        'sn' => (string) huawei_pick($alarm, ['esnCode', 'sn', 'deviceSn'], ''),
+        'status' => (string) huawei_pick($alarm, ['status'], ''),
+        'alarmCause' => (string) huawei_pick($alarm, ['alarmCause', 'cause'], ''),
+        'repairSuggestion' => (string) huawei_pick($alarm, ['repairSuggestion', 'suggestion'], ''),
+        'occurrenceTime' => huawei_alarm_time($raiseTime),
+        'raw' => $alarm,
+    ];
+}
+
+function huawei_alarm_severity(int $level): string
+{
+    return match ($level) {
+        1 => 'critical',
+        2 => 'major',
+        3 => 'minor',
+        4 => 'warning',
+        default => 'unknown',
+    };
+}
+
+function huawei_alarm_time(mixed $value): string
+{
+    if ($value === null || $value === '') {
+        return '';
+    }
+
+    if (is_numeric($value)) {
+        $timestamp = (int) $value;
+        if ($timestamp > 9999999999) {
+            $timestamp = (int) floor($timestamp / 1000);
+        }
+        return gmdate('c', $timestamp);
+    }
+
+    $timestamp = strtotime((string) $value);
+    return $timestamp === false ? (string) $value : gmdate('c', $timestamp);
+}

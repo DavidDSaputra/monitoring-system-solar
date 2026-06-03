@@ -15,18 +15,17 @@ function huawei_request(string $path, array $body = [], bool $retry = true): arr
     }
 
     if ($result['statusCode'] < 200 || $result['statusCode'] >= 300) {
-        api_fail($result['statusCode'] ?: 502, 'Huawei API HTTP error');
+        throw new RuntimeException('Huawei API HTTP error: ' . ($result['statusCode'] ?: 502));
     }
 
     if (!is_array($result['body'])) {
-        api_fail(502, 'Huawei API returned invalid JSON');
+        throw new RuntimeException('Huawei API returned invalid JSON');
     }
 
     if (($result['body']['success'] ?? true) === false) {
-        api_fail(502, 'Huawei API returned an error', [
-            'failCode' => $result['body']['failCode'] ?? null,
-            'message' => $result['body']['message'] ?? $result['body']['data'] ?? null,
-        ]);
+        $failCode = (string) ($result['body']['failCode'] ?? '');
+        $message = (string) ($result['body']['message'] ?? $result['body']['data'] ?? 'Huawei API returned an error');
+        throw new RuntimeException(trim("Huawei API error {$failCode}: {$message}"));
     }
 
     return $result['body'];
@@ -36,7 +35,7 @@ function huawei_send_request(string $url, array $body, array $session): array
 {
     $bodyJson = json_encode($body, JSON_UNESCAPED_SLASHES);
     if ($bodyJson === false) {
-        api_fail(500, 'Unable to encode Huawei request body');
+        throw new RuntimeException('Unable to encode Huawei request body');
     }
 
     $headers = [
@@ -68,7 +67,7 @@ function huawei_send_request(string $url, array $body, array $session): array
     curl_close($ch);
 
     if ($responseBody === false) {
-        api_fail(502, "Huawei request failed: {$curlError}");
+        throw new RuntimeException("Huawei request failed: {$curlError}");
     }
 
     return [

@@ -11,7 +11,7 @@ abstract class MonitoringProvider {
   String get id;
   String get displayName;
 
-  Future<List<Station>> getPlants();
+  Future<List<Station>> getPlants({bool forceRefresh = false});
   Future<MonitoringOverviewSnapshot> getOverview();
   Future<StationDetail> getPlantDetail(String stationId);
 

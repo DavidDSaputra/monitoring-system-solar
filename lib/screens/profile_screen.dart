@@ -51,9 +51,7 @@ class ProfileScreen extends StatelessWidget {
 
   Widget _buildHeroHeader() {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: AppColors.primaryGradient,
-      ),
+      decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
       child: SafeArea(
         bottom: false,
         child: Padding(
@@ -275,10 +273,7 @@ class ProfileScreen extends StatelessWidget {
             title: 'Auth Method',
             trailing: const Text(
               'HMAC-SHA1',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textSecondary,
-              ),
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
           ),
           _divider(),

@@ -94,10 +94,7 @@ class Collector {
     );
   }
 
-  static String? _pickFirstString(
-    Map<String, dynamic> raw,
-    List<String> keys,
-  ) {
+  static String? _pickFirstString(Map<String, dynamic> raw, List<String> keys) {
     for (final key in keys) {
       final value = raw[key];
       if (value == null) continue;

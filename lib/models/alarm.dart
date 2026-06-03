@@ -31,10 +31,14 @@ class Alarm {
 
   String get levelText {
     switch (alarmLevel) {
-      case 1: return 'Prompt';
-      case 2: return 'Warning';
-      case 3: return 'Severe';
-      default: return 'Unknown';
+      case 1:
+        return 'Prompt';
+      case 2:
+        return 'Warning';
+      case 3:
+        return 'Severe';
+      default:
+        return 'Unknown';
     }
   }
 

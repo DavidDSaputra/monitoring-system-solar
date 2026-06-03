@@ -1,4 +1,6 @@
 RewriteEngine On
 
 RewriteRule ^huawei/stations/([^/]+)/realtime/?$ huawei/station_realtime.php?plantCode=$1 [QSA,L,B]
+RewriteRule ^growatt/stations/([^/]+)/realtime/?$ growatt/station_realtime.php?plantCode=$1 [QSA,L,B]
 RewriteRule ^monitoring/plants/?$ monitoring/plants.php [QSA,L]
+RewriteRule ^health/?$ health.php [QSA,L]

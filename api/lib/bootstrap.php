@@ -45,7 +45,21 @@ function api_env(string $key, ?string $fallback = null): ?string
 {
     static $env = null;
     if ($env === null) {
-        $env = api_read_env_file(dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . '.env');
+        $env = [];
+        $explicitEnvFile = getenv('JARWINN_ENV_FILE');
+        $paths = [
+            $explicitEnvFile !== false ? $explicitEnvFile : null,
+            dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . '.env',
+            dirname(__DIR__) . DIRECTORY_SEPARATOR . '.env',
+        ];
+
+        foreach ($paths as $path) {
+            if (!is_string($path) || $path === '') {
+                continue;
+            }
+
+            $env = array_merge($env, api_read_env_file($path));
+        }
     }
 
     $value = getenv($key);
@@ -113,6 +127,25 @@ function api_cache_entry(string $key): ?array
     }
 
     return $cached;
+}
+
+function api_cache_meta(string $key): array
+{
+    $entry = api_cache_entry($key);
+    if ($entry === null) {
+        return [
+            'exists' => false,
+            'ageSeconds' => null,
+            'createdAt' => null,
+        ];
+    }
+
+    $createdAt = (int) $entry['createdAt'];
+    return [
+        'exists' => true,
+        'ageSeconds' => max(0, time() - $createdAt),
+        'createdAt' => gmdate(DATE_ATOM, $createdAt),
+    ];
 }
 
 function api_cache_get_stale(string $key, int $maxAgeSeconds): ?array

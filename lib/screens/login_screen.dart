@@ -170,8 +170,9 @@ class _LoginScreenState extends State<LoginScreen>
                 hint: 'Masukkan username',
                 icon: Icons.person_outline_rounded,
               ),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Username wajib diisi' : null,
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? 'Username wajib diisi'
+                  : null,
             ),
             const SizedBox(height: 16),
 
@@ -247,8 +248,9 @@ class _LoginScreenState extends State<LoginScreen>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor:
-                      AppColors.primary.withValues(alpha: 0.6),
+                  disabledBackgroundColor: AppColors.primary.withValues(
+                    alpha: 0.6,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(13),
                   ),

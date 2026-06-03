@@ -29,7 +29,7 @@ class _EventsScreenState extends State<EventsScreen> {
       _errorMessage = null;
     });
     try {
-      final alarms = await _repository.getAlarms(forceRefresh: true);
+      final alarms = await _repository.getAlarms();
       if (mounted) {
         setState(() {
           _alarms = alarms;

@@ -29,7 +29,7 @@ class MonitoringRepository {
     return _cached(
       'plants',
       const Duration(seconds: 20),
-      _provider.getPlants,
+      () => _provider.getPlants(forceRefresh: forceRefresh),
       forceRefresh: forceRefresh,
     );
   }
@@ -205,6 +205,9 @@ class MonitoringRepository {
     _inFlight[cacheKey] = request;
     try {
       return await request as T;
+    } catch (_) {
+      if (cached != null) return cached.data as T;
+      rethrow;
     } finally {
       _inFlight.remove(cacheKey);
     }

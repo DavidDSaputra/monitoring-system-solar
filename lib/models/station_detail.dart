@@ -42,11 +42,11 @@ class StationDetail {
   final String? tmpMax;
   final String? tmpMin;
   final String? tmpUnit;
-  final String? winSpe;      // wind speed (e.g. "3.4m/s")
-  final String? winDir;      // wind direction (e.g. "WNW")
-  final String? humidity;    // humidity % (e.g. "75")
-  final String? sunrise;     // "05:54"
-  final String? sunset;      // "17:54"
+  final String? winSpe; // wind speed (e.g. "3.4m/s")
+  final String? winDir; // wind direction (e.g. "WNW")
+  final String? humidity; // humidity % (e.g. "75")
+  final String? sunrise; // "05:54"
+  final String? sunset; // "17:54"
 
   // Device counts
   final int? inverterCount;
@@ -62,9 +62,9 @@ class StationDetail {
   final String? homeLoadTodayEnergyStr;
 
   // Environmental benefits (from API when available)
-  final double? co2Reduce;     // CO2 reduction kg
+  final double? co2Reduce; // CO2 reduction kg
   final double? coalReduction; // Standard coal saved kg
-  final double? treeNum;       // Equivalent trees planted
+  final double? treeNum; // Equivalent trees planted
 
   StationDetail({
     required this.raw,
@@ -130,19 +130,28 @@ class StationDetail {
   bool get isOnline => state == 1;
   String get statusText {
     switch (state) {
-      case 1: return 'Online';
-      case 2: return 'Offline';
-      case 3: return 'Alarm';
-      default: return 'Unknown';
+      case 1:
+        return 'Online';
+      case 2:
+        return 'Offline';
+      case 3:
+        return 'Alarm';
+      default:
+        return 'Unknown';
     }
   }
 
   /// Display helpers using API-provided units
-  String get powerDisplay => '${power?.toStringAsFixed(2) ?? "0"} ${powerStr ?? "kW"}';
-  String get dayEnergyDisplay => '${dayEnergy?.toStringAsFixed(1) ?? "0"} ${dayEnergyStr ?? "kWh"}';
-  String get monthEnergyDisplay => '${monthEnergy?.toStringAsFixed(1) ?? "0"} ${monthEnergyStr ?? "kWh"}';
-  String get yearEnergyDisplay => '${yearEnergy?.toStringAsFixed(1) ?? "0"} ${yearEnergyStr ?? "kWh"}';
-  String get allEnergyDisplay => '${allEnergy?.toStringAsFixed(1) ?? "0"} ${allEnergyStr ?? "kWh"}';
+  String get powerDisplay =>
+      '${power?.toStringAsFixed(2) ?? "0"} ${powerStr ?? "kW"}';
+  String get dayEnergyDisplay =>
+      '${dayEnergy?.toStringAsFixed(1) ?? "0"} ${dayEnergyStr ?? "kWh"}';
+  String get monthEnergyDisplay =>
+      '${monthEnergy?.toStringAsFixed(1) ?? "0"} ${monthEnergyStr ?? "kWh"}';
+  String get yearEnergyDisplay =>
+      '${yearEnergy?.toStringAsFixed(1) ?? "0"} ${yearEnergyStr ?? "kWh"}';
+  String get allEnergyDisplay =>
+      '${allEnergy?.toStringAsFixed(1) ?? "0"} ${allEnergyStr ?? "kWh"}';
 
   /// Formatted income display (e.g. "5.201k IDR")
   String _formatIncome(double? value, String? unit) {

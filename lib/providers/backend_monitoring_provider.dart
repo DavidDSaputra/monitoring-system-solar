@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 
-import '../config/app_constants.dart';
+import '../config/api_base_urls.dart';
 import '../models/alarm.dart';
 import '../models/battery.dart';
 import '../models/collector.dart';
@@ -30,8 +29,11 @@ class BackendMonitoringProvider implements MonitoringProvider {
   String get displayName => 'Monitoring API';
 
   @override
-  Future<List<Station>> getPlants() async {
-    final data = await _getData('plants.php');
+  Future<List<Station>> getPlants({bool forceRefresh = false}) async {
+    final data = await _getData(
+      'plants.php',
+      forceRefresh ? {'refresh': 'true'} : null,
+    );
     return _records(data).map((json) => Station.fromJson(json)).toList();
   }
 
@@ -146,12 +148,17 @@ class BackendMonitoringProvider implements MonitoringProvider {
   ]) async {
     Object? lastError;
 
-    for (final baseUrl in _baseUrls) {
+    for (final baseUrl in prioritizeMonitoringBaseUrls(_baseUrls)) {
       try {
         final uri = Uri.parse('$baseUrl/$path').replace(queryParameters: query);
+        final isLiveRefresh = query?['refresh'] == 'true';
         final response = await _httpClient
             .get(uri)
-            .timeout(const Duration(seconds: 8));
+            .timeout(
+              isLiveRefresh
+                  ? const Duration(seconds: 35)
+                  : monitoringApiTimeoutFor(baseUrl),
+            );
         final decoded = jsonDecode(response.body);
 
         if (decoded is! Map<String, dynamic>) {
@@ -172,6 +179,7 @@ class BackendMonitoringProvider implements MonitoringProvider {
         }
 
         final data = decoded['data'];
+        rememberMonitoringBaseUrl(baseUrl);
         if (data is Map<String, dynamic>) return data;
         return <String, dynamic>{};
       } catch (e) {
@@ -186,26 +194,12 @@ class BackendMonitoringProvider implements MonitoringProvider {
     throw BackendMonitoringException(
       code: 'NETWORK',
       message:
-          'Monitoring API tidak bisa dihubungi. Cek Laragon/Apache, firewall, Wi-Fi, atau jalankan adb reverse tcp:8787 tcp:80. Detail: $lastError',
+          'Monitoring API tidak bisa dihubungi. Cek Laragon/Apache, firewall, Wi-Fi, atau jalankan adb reverse tcp:8080 tcp:80. Detail: $lastError',
     );
   }
 
   static List<String> _resolveBaseUrls(String? baseUrl) {
-    final configured = baseUrl ?? dotenv.env['MONITORING_API_BASE_URLS'];
-    final rawUrls = configured?.trim().isNotEmpty == true
-        ? configured!.split(',')
-        : [
-            dotenv.env['MONITORING_API_BASE_URL'] ??
-                AppConstants.defaultMonitoringApiBaseUrl,
-          ];
-
-    final urls = rawUrls
-        .map((url) => url.trim().replaceFirst(RegExp(r'/+$'), ''))
-        .where((url) => url.isNotEmpty)
-        .toSet()
-        .toList();
-
-    return urls.isNotEmpty ? urls : [AppConstants.defaultMonitoringApiBaseUrl];
+    return resolveMonitoringApiBaseUrls(overrideBaseUrl: baseUrl);
   }
 
   List<Map<String, dynamic>> _records(Map<String, dynamic> data) {

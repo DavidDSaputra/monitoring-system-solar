@@ -8,8 +8,7 @@ class AuthService {
   static bool get isLoggedIn => _loggedIn;
 
   static bool login(String username, String password) {
-    if (username.trim() == _validUsername &&
-        password == _validPassword) {
+    if (username.trim() == _validUsername && password == _validPassword) {
       _loggedIn = true;
       return true;
     }
