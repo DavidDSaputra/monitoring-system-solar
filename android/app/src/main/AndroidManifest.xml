@@ -5,8 +5,8 @@
     <application
         android:label="SolarView"
         android:name="${applicationName}"
-        android:icon="@drawable/solarview_logo"
-        android:roundIcon="@drawable/solarview_logo"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
