@@ -226,7 +226,7 @@ class _EmptyChart extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'No data available',
+            'Belum ada data grafik',
             style: TextStyle(color: AppColors.textTertiary, fontSize: 13),
           ),
         ],

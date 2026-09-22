@@ -92,8 +92,11 @@ function huawei_is_unauthorized(array $result): bool
 
     return str_contains($code, '401') ||
         str_contains($code, '403') ||
+        $code === '305' ||
         str_contains($message, 'session') ||
         str_contains($message, 'token') ||
+        str_contains($message, 'relogin') ||
+        str_contains($message, 'must_relogin') ||
         str_contains($message, 'unauthorized');
 }
 

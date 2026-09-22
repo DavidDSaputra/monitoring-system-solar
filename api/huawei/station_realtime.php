@@ -5,19 +5,20 @@ require_once dirname(__DIR__) . '/services/huawei/huaweiKpiService.php';
 require_once dirname(__DIR__) . '/adapters/huawei/huaweiAdapter.php';
 
 $plantCode = urldecode(trim((string) ($_GET['plantCode'] ?? '')));
+$forceRefresh = filter_var($_GET['refresh'] ?? $_GET['forceRefresh'] ?? false, FILTER_VALIDATE_BOOLEAN);
 if ($plantCode === '') {
     api_fail(400, 'Huawei plantCode is required');
 }
 
 $cacheKey = 'huawei:station-realtime:' . sha1($plantCode);
-$cached = api_cache_get($cacheKey, 30);
+$cached = $forceRefresh ? null : api_cache_get($cacheKey, 30);
 if ($cached !== null) {
     $cached['cached'] = true;
     api_json($cached);
 }
 
 try {
-    $result = huawei_get_station_realtime_kpi($plantCode);
+    $result = huawei_get_station_realtime_kpi($plantCode, $forceRefresh);
     $payload = [
         'success' => true,
         'source' => 'huawei',

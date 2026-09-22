@@ -74,6 +74,15 @@ function huawei_login(): array
         api_fail($statusCode > 0 ? $statusCode : 502, 'Huawei login HTTP error');
     }
 
+    $success = $decoded['success'] ?? null;
+    $failCode = (string) ($decoded['failCode'] ?? $decoded['code'] ?? '');
+    if ($success === false || ($failCode !== '' && $failCode !== '0')) {
+        api_fail(502, 'Huawei login failed', [
+            'failCode' => $failCode,
+            'message' => $decoded['message'] ?? $decoded['msg'] ?? null,
+        ]);
+    }
+
     $session = huawei_extract_session($decoded, $headers);
     if (($session['token'] ?? '') === '' && ($session['cookie'] ?? '') === '') {
         api_fail(502, 'Huawei login succeeded but no token/cookie was returned');
@@ -103,7 +112,7 @@ function huawei_refresh_session(): array
 function huawei_extract_session(array $body, array $headers): array
 {
     $token = huawei_pick_token($body);
-    foreach (['xsrf-token', 'x-xsrf-token', 'token', 'authorization'] as $headerName) {
+    foreach (['xsrf-token', 'x-xsrf-token', 'token', 'authorization', 'accesssession', 'access-session'] as $headerName) {
         if ($token !== '') {
             break;
         }

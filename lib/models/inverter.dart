@@ -44,6 +44,8 @@ class Inverter {
   // Battery related fields (returned for Hybrid inverters)
   final double? batteryCapacitySoc;
   final double? batteryPower;
+  final double? batteryTodayChargeEnergy;
+  final double? batteryTodayDischargeEnergy;
   final double? batteryTotalChargeEnergy;
   final double? batteryTotalDischargeEnergy;
 
@@ -91,6 +93,8 @@ class Inverter {
     this.productModel,
     this.batteryCapacitySoc,
     this.batteryPower,
+    this.batteryTodayChargeEnergy,
+    this.batteryTodayDischargeEnergy,
     this.batteryTotalChargeEnergy,
     this.batteryTotalDischargeEnergy,
   });
@@ -170,6 +174,10 @@ class Inverter {
         json['batteryCapacitySoc'] ?? json['soc'],
       ),
       batteryPower: _parseDouble(json['batteryPower']),
+      batteryTodayChargeEnergy: _parseDouble(json['batteryTodayChargeEnergy']),
+      batteryTodayDischargeEnergy: _parseDouble(
+        json['batteryTodayDischargeEnergy'],
+      ),
       batteryTotalChargeEnergy: _parseDouble(json['batteryTotalChargeEnergy']),
       batteryTotalDischargeEnergy: _parseDouble(
         json['batteryTotalDischargeEnergy'],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../config/app_theme.dart';
 import '../models/battery.dart';
@@ -10,6 +11,15 @@ import 'inverter_data_screen.dart';
 import 'plant_detail_screen.dart';
 
 enum OverviewDetailType { plants, inverters, batteries, dataloggers }
+
+class _MetricDisplay {
+  final String value;
+  final String unit;
+
+  const _MetricDisplay(this.value, this.unit);
+
+  String get text => '$value $unit';
+}
 
 class OverviewDetailScreen extends StatelessWidget {
   final OverviewDetailType type;
@@ -94,6 +104,58 @@ class OverviewDetailScreen extends StatelessWidget {
       case OverviewDetailType.dataloggers:
         return collectors.length;
     }
+  }
+
+  _MetricDisplay _formatEnergy(num value, {String unit = 'kWh'}) {
+    return _formatMetricValue(
+      _toBaseEnergyKwh(value, unit),
+      units: const ['kWh', 'MWh', 'GWh'],
+    );
+  }
+
+  _MetricDisplay _formatPower(num value, {String unit = 'kW'}) {
+    return _formatMetricValue(
+      _toBasePowerKw(value, unit),
+      units: const ['kW', 'MW', 'GW'],
+    );
+  }
+
+  _MetricDisplay _formatMetricValue(num value, {required List<String> units}) {
+    var scaled = value.toDouble();
+    var unitIndex = 0;
+    while (scaled.abs() >= 1000 && unitIndex < units.length - 1) {
+      scaled /= 1000;
+      unitIndex++;
+    }
+
+    final absValue = scaled.abs();
+    final decimals = absValue >= 100
+        ? 0
+        : absValue >= 10
+        ? 1
+        : 2;
+    final pattern = decimals == 0
+        ? '#,##0'
+        : '#,##0.${List.filled(decimals, '#').join()}';
+    return _MetricDisplay(
+      NumberFormat(pattern, 'id_ID').format(scaled),
+      units[unitIndex],
+    );
+  }
+
+  double _toBaseEnergyKwh(num value, String unit) {
+    final lower = unit.toLowerCase();
+    if (lower.contains('gwh')) return value * 1000000;
+    if (lower.contains('mwh')) return value * 1000;
+    return value.toDouble();
+  }
+
+  double _toBasePowerKw(num value, String unit) {
+    final lower = unit.toLowerCase();
+    if (lower.contains('gw')) return value * 1000000;
+    if (lower.contains('mw')) return value * 1000;
+    if (lower == 'w') return value / 1000;
+    return value.toDouble();
   }
 
   String _stationKey(String? stationName) {
@@ -292,9 +354,15 @@ class OverviewDetailScreen extends StatelessWidget {
       subtitle:
           '$plantType - ${station.addr?.isNotEmpty == true ? station.addr! : station.statusText}',
       primaryMetricLabel: 'Power',
-      primaryMetricValue: station.powerDisplay,
+      primaryMetricValue: _formatPower(
+        station.power ?? 0,
+        unit: station.powerStr ?? 'kW',
+      ).text,
       secondaryMetricLabel: 'Today',
-      secondaryMetricValue: station.dayEnergyDisplay,
+      secondaryMetricValue: _formatEnergy(
+        station.dayEnergy ?? 0,
+        unit: station.dayEnergyStr ?? 'kWh',
+      ).text,
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
@@ -316,9 +384,15 @@ class OverviewDetailScreen extends StatelessWidget {
       title: inverter.inverterName ?? inverter.sn,
       subtitle: 'SN: ${inverter.sn}',
       primaryMetricLabel: 'Power',
-      primaryMetricValue: inverter.pacDisplay,
+      primaryMetricValue: _formatPower(
+        inverter.pac ?? 0,
+        unit: inverter.pacStr ?? 'kW',
+      ).text,
       secondaryMetricLabel: 'Today',
-      secondaryMetricValue: inverter.eTodayDisplay,
+      secondaryMetricValue: _formatEnergy(
+        inverter.eToday ?? 0,
+        unit: inverter.eTodayStr ?? 'kWh',
+      ).text,
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
@@ -342,8 +416,10 @@ class OverviewDetailScreen extends StatelessWidget {
       primaryMetricLabel: 'SOC',
       primaryMetricValue: battery.socDisplay,
       secondaryMetricLabel: 'Power',
-      secondaryMetricValue:
-          '${battery.batteryPower?.toStringAsFixed(1) ?? "0"} ${battery.batteryPowerStr ?? "W"}',
+      secondaryMetricValue: _formatPower(
+        battery.batteryPower ?? 0,
+        unit: battery.batteryPowerStr ?? 'W',
+      ).text,
     );
   }
 

@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 
 import '../config/app_theme.dart';
 import '../models/huawei/huawei_alarm.dart';
+import '../models/huawei/huawei_device.dart';
 import '../models/huawei/huawei_plant.dart';
 import '../services/huawei/huawei_monitoring_service.dart';
+import 'provider_record_detail_screen.dart';
 
 const _fusionBlue = Color(0xFF1687E8);
 const _fusionDark = Color(0xFF1F1F1F);
@@ -22,6 +24,7 @@ class HuaweiDashboardScreen extends StatefulWidget {
 class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
   final HuaweiMonitoringService _service = HuaweiMonitoringService();
   final List<HuaweiPlant> _plants = [];
+  final List<HuaweiDevice> _devices = [];
   final List<HuaweiAlarm> _alarms = [];
   Timer? _refreshTimer;
 
@@ -29,6 +32,7 @@ class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
   int _tabIndex = 0;
   bool _historicalAlarms = false;
   bool _isLoading = true;
+  bool _isDeviceLoading = false;
   bool _isAlarmLoading = false;
   String? _errorMessage;
   String? _alarmError;
@@ -51,6 +55,16 @@ class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
         longitude: '',
       );
 
+  String _formatKwh(num value) {
+    final numeric = value.toDouble();
+    final absValue = numeric.abs();
+    final decimals = absValue >= 100 ? 0 : 1;
+    final formatted = numeric.toStringAsFixed(decimals);
+    return formatted.endsWith('.0')
+        ? formatted.substring(0, formatted.length - 2)
+        : formatted;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -60,7 +74,10 @@ class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
     });
   }
 
-  Future<void> _loadPlants({bool showLoading = true}) async {
+  Future<void> _loadPlants({
+    bool showLoading = true,
+    bool forceRefresh = false,
+  }) async {
     if (showLoading) {
       setState(() {
         _isLoading = true;
@@ -69,7 +86,7 @@ class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
     }
 
     try {
-      final plants = await _service.getPlants();
+      final plants = await _service.getPlants(forceRefresh: forceRefresh);
       if (!mounted) return;
       final selectedCode = _selectedPlant?.plantCode;
       final selected = plants.firstWhere(
@@ -83,17 +100,19 @@ class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
         _selectedPlant = selected.plantCode.isEmpty ? null : selected;
         _isLoading = false;
       });
-      _loadAlarms();
+      _loadDevices(forceRefresh: forceRefresh);
+      _loadAlarms(forceRefresh: forceRefresh);
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Huawei data unavailable';
+        _errorMessage =
+            'Menampilkan data terakhir Huawei. Tarik untuk refresh.';
       });
     }
   }
 
-  Future<void> _loadAlarms() async {
+  Future<void> _loadAlarms({bool forceRefresh = false}) async {
     if (_plant.plantCode.isEmpty) return;
     setState(() {
       _isAlarmLoading = true;
@@ -104,6 +123,7 @@ class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
       final alarms = await _service.getAlarms(
         plantCode: _plant.plantCode,
         historical: _historicalAlarms,
+        forceRefresh: forceRefresh,
       );
       if (!mounted) return;
       setState(() {
@@ -115,10 +135,31 @@ class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _alarms.clear();
         _isAlarmLoading = false;
-        _alarmError = 'Huawei alarm data unavailable';
+        _alarmError = 'Alarm Huawei belum tersinkron. Tarik untuk refresh.';
       });
+    }
+  }
+
+  Future<void> _loadDevices({bool forceRefresh = false}) async {
+    if (_plant.plantCode.isEmpty) return;
+    setState(() => _isDeviceLoading = true);
+
+    try {
+      final devices = await _service.getDevices(
+        _plant.plantCode,
+        forceRefresh: forceRefresh,
+      );
+      if (!mounted) return;
+      setState(() {
+        _devices
+          ..clear()
+          ..addAll(devices);
+        _isDeviceLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isDeviceLoading = false);
     }
   }
 
@@ -129,6 +170,7 @@ class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
       orElse: () => _plant,
     );
     setState(() => _selectedPlant = plant);
+    _loadDevices();
     _loadAlarms();
   }
 
@@ -144,7 +186,8 @@ class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
             Expanded(
               child: RefreshIndicator(
                 color: _fusionBlue,
-                onRefresh: () => _loadPlants(showLoading: false),
+                onRefresh: () =>
+                    _loadPlants(showLoading: false, forceRefresh: true),
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
@@ -192,7 +235,9 @@ class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
                                 key: ValueKey(
                                   'huawei-tab-$_tabIndex-$_historicalAlarms',
                                 ),
-                                child: _tabIndex == 4
+                                child: _tabIndex == 3
+                                    ? _buildDevicePage()
+                                    : _tabIndex == 4
                                     ? _buildAlarmPage()
                                     : _buildOverviewPage(),
                               ),
@@ -238,7 +283,8 @@ class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
           const Spacer(),
           _topBadge('Monitoring'),
           IconButton(
-            onPressed: () => _loadPlants(showLoading: false),
+            onPressed: () =>
+                _loadPlants(showLoading: false, forceRefresh: true),
             icon: const Icon(Icons.refresh_rounded, color: Colors.white70),
           ),
         ],
@@ -375,6 +421,7 @@ class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
             onTap: () {
               setState(() => _tabIndex = index);
               if (index == 4) _loadAlarms();
+              if (index == 3) _loadDevices();
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
@@ -466,7 +513,9 @@ class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item.value.toStringAsFixed(2),
+                  item.unit == 'kWh'
+                      ? _formatKwh(item.value)
+                      : item.value.toStringAsFixed(1),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -736,6 +785,204 @@ class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
     );
   }
 
+  Widget _buildDevicePage() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'Device / Inverter',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _isDeviceLoading
+                    ? 'Refreshing...'
+                    : '${_devices.length} Device',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (_isDeviceLoading)
+            const SizedBox(
+              height: 180,
+              child: Center(
+                child: CircularProgressIndicator(color: _fusionBlue),
+              ),
+            )
+          else if (_devices.isEmpty)
+            _emptyDeviceState()
+          else
+            for (var i = 0; i < _devices.length; i++)
+              _softReveal(index: i, child: _deviceCard(_devices[i])),
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyDeviceState() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 42),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _line),
+      ),
+      child: const Column(
+        children: [
+          Icon(Icons.memory_rounded, color: AppColors.textTertiary, size: 42),
+          SizedBox(height: 8),
+          Text(
+            'Device Huawei belum terdeteksi',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _deviceCard(HuaweiDevice device) {
+    final color = _statusColor(device.status);
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: () => _openDeviceDetail(device),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _line),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.memory_rounded, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    device.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    [
+                      device.type,
+                      device.sn,
+                    ].where((e) => e.isNotEmpty).join(' | '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${device.currentPower.toStringAsFixed(2)} kW',
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  device.status,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openDeviceDetail(HuaweiDevice device) async {
+    Map<String, dynamic> realtime = {};
+    if (device.id.isNotEmpty) {
+      try {
+        final records = await _service.getDeviceRealtime(device.id);
+        if (records.isNotEmpty) realtime = records.first;
+      } catch (_) {
+        realtime = {};
+      }
+    }
+
+    if (!mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ProviderRecordDetailScreen(
+          title: device.name,
+          subtitle: device.sn.isEmpty ? 'Huawei device' : device.sn,
+          accentColor: _fusionBlue,
+          raw: {...device.raw, ...realtime},
+          fields: [
+            ProviderRecordField('Plant', _plant.plantName),
+            ProviderRecordField('Device ID', device.id),
+            ProviderRecordField('Serial Number', device.sn),
+            ProviderRecordField('Type', device.type),
+            ProviderRecordField('Status', device.status),
+            ProviderRecordField(
+              'Current Power',
+              '${device.currentPower.toStringAsFixed(2)} kW',
+            ),
+            ProviderRecordField(
+              'Today Energy',
+              '${device.dailyEnergy.toStringAsFixed(1)} kWh',
+            ),
+            ProviderRecordField(
+              'Total Energy',
+              '${device.totalEnergy.toStringAsFixed(1)} kWh',
+            ),
+            ProviderRecordField('Updated', device.updatedAt ?? '-'),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildAlarmPage() {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -916,7 +1163,7 @@ class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
           Icon(Icons.inbox_outlined, color: AppColors.textTertiary, size: 42),
           SizedBox(height: 8),
           Text(
-            'No data',
+            'Belum ada alarm',
             style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
           ),
         ],
@@ -925,44 +1172,70 @@ class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
   }
 
   Widget _alarmCard(HuaweiAlarm alarm) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _severityChip(alarm.severity),
-              const Spacer(),
-              Text(
-                _formatTime(alarm.occurrenceTime),
-                style: const TextStyle(
-                  color: AppColors.textTertiary,
-                  fontSize: 11,
-                ),
-              ),
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ProviderRecordDetailScreen(
+            title: alarm.alarmName,
+            subtitle: alarm.plantName,
+            accentColor: _severityColor(alarm.severity),
+            raw: alarm.raw,
+            fields: [
+              ProviderRecordField('Alarm ID', alarm.alarmId),
+              ProviderRecordField('Severity', _title(alarm.severity)),
+              ProviderRecordField('Status', alarm.status),
+              ProviderRecordField('Plant', alarm.plantName),
+              ProviderRecordField('Plant Code', alarm.plantCode),
+              ProviderRecordField('Device', alarm.deviceName),
+              ProviderRecordField('Device Type', alarm.deviceType),
+              ProviderRecordField('SN', alarm.sn),
+              ProviderRecordField('Time', _formatTime(alarm.occurrenceTime)),
+              ProviderRecordField('Cause', alarm.alarmCause),
+              ProviderRecordField('Suggestion', alarm.repairSuggestion),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            alarm.alarmName,
-            style: const TextStyle(
-              fontWeight: FontWeight.w900,
-              color: AppColors.textPrimary,
+        ),
+      ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _line),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _severityChip(alarm.severity),
+                const Spacer(),
+                Text(
+                  _formatTime(alarm.occurrenceTime),
+                  style: const TextStyle(
+                    color: AppColors.textTertiary,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 6),
-          _alarmInfo('Plant', alarm.plantName),
-          _alarmInfo('Device', alarm.deviceName),
-          _alarmInfo('SN', alarm.sn),
-          _alarmInfo('Alarm ID', alarm.alarmId),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              alarm.alarmName,
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            _alarmInfo('Plant', alarm.plantName),
+            _alarmInfo('Device', alarm.deviceName),
+            _alarmInfo('SN', alarm.sn),
+            _alarmInfo('Alarm ID', alarm.alarmId),
+          ],
+        ),
       ),
     );
   }

@@ -10,11 +10,13 @@ import '../models/collector.dart';
 import '../models/energy_data.dart';
 import '../models/inverter.dart';
 import '../models/monitoring_overview.dart';
+import '../models/paged_station_result.dart';
 import '../models/station.dart';
 import '../models/station_detail.dart';
 import 'monitoring_provider.dart';
 
-class BackendMonitoringProvider implements MonitoringProvider {
+class BackendMonitoringProvider
+    implements MonitoringProvider, PagedMonitoringProvider {
   final List<String> _baseUrls;
   final http.Client _httpClient;
 
@@ -35,6 +37,25 @@ class BackendMonitoringProvider implements MonitoringProvider {
       forceRefresh ? {'refresh': 'true'} : null,
     );
     return _records(data).map((json) => Station.fromJson(json)).toList();
+  }
+
+  @override
+  Future<PagedStationResult> getPlantsPage({
+    required int pageNo,
+    required int pageSize,
+    bool forceRefresh = false,
+  }) async {
+    final data = await _getData('plants.php', {
+      'pageNo': pageNo.toString(),
+      'pageSize': pageSize.toString(),
+      if (forceRefresh) 'refresh': 'true',
+    });
+    return PagedStationResult(
+      records: _records(data).map((json) => Station.fromJson(json)).toList(),
+      total: _total(data),
+      pageNo: pageNo,
+      pageSize: pageSize,
+    );
   }
 
   @override
@@ -149,41 +170,51 @@ class BackendMonitoringProvider implements MonitoringProvider {
     Object? lastError;
 
     for (final baseUrl in prioritizeMonitoringBaseUrls(_baseUrls)) {
-      try {
-        final uri = Uri.parse('$baseUrl/$path').replace(queryParameters: query);
-        final isLiveRefresh = query?['refresh'] == 'true';
-        final response = await _httpClient
-            .get(uri)
-            .timeout(
-              isLiveRefresh
-                  ? const Duration(seconds: 35)
-                  : monitoringApiTimeoutFor(baseUrl),
+      for (var attempt = 0; attempt < 2; attempt++) {
+        try {
+          final uri = Uri.parse(
+            '$baseUrl/$path',
+          ).replace(queryParameters: query);
+          final isLiveRefresh = query?['refresh'] == 'true';
+          final response = await _httpClient
+              .get(uri)
+              .timeout(
+                isLiveRefresh
+                    ? const Duration(seconds: 35)
+                    : monitoringApiTimeoutFor(
+                        baseUrl,
+                        fallback: const Duration(seconds: 10),
+                      ),
+              );
+          final decoded = jsonDecode(response.body);
+
+          if (decoded is! Map<String, dynamic>) {
+            throw BackendMonitoringException(
+              code: response.statusCode.toString(),
+              message: 'Monitoring API returned invalid JSON from $baseUrl',
             );
-        final decoded = jsonDecode(response.body);
+          }
 
-        if (decoded is! Map<String, dynamic>) {
-          throw BackendMonitoringException(
-            code: response.statusCode.toString(),
-            message: 'Monitoring API returned invalid JSON from $baseUrl',
-          );
+          if (response.statusCode != 200 || decoded['success'] != true) {
+            throw BackendMonitoringException(
+              code: (decoded['code'] ?? response.statusCode).toString(),
+              message:
+                  decoded['message']?.toString() ??
+                  decoded['msg']?.toString() ??
+                  'Monitoring API request failed from $baseUrl',
+            );
+          }
+
+          final data = decoded['data'];
+          rememberMonitoringBaseUrl(baseUrl);
+          if (data is Map<String, dynamic>) return data;
+          return <String, dynamic>{};
+        } catch (e) {
+          lastError = e;
+          if (attempt == 0) {
+            await Future<void>.delayed(const Duration(milliseconds: 600));
+          }
         }
-
-        if (response.statusCode != 200 || decoded['success'] != true) {
-          throw BackendMonitoringException(
-            code: (decoded['code'] ?? response.statusCode).toString(),
-            message:
-                decoded['message']?.toString() ??
-                decoded['msg']?.toString() ??
-                'Monitoring API request failed from $baseUrl',
-          );
-        }
-
-        final data = decoded['data'];
-        rememberMonitoringBaseUrl(baseUrl);
-        if (data is Map<String, dynamic>) return data;
-        return <String, dynamic>{};
-      } catch (e) {
-        lastError = e;
       }
     }
 
@@ -210,6 +241,14 @@ class BackendMonitoringProvider implements MonitoringProvider {
         .whereType<Map>()
         .map((json) => Map<String, dynamic>.from(json))
         .toList();
+  }
+
+  int _total(Map<String, dynamic> data) {
+    final total = data['total'];
+    if (total is int) return total;
+    if (total is num) return total.toInt();
+    if (total is String) return int.tryParse(total) ?? _records(data).length;
+    return _records(data).length;
   }
 
   List<Map<String, dynamic>> _sectionRecords(

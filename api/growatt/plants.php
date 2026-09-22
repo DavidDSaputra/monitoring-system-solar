@@ -6,15 +6,16 @@ require_once dirname(__DIR__) . '/adapters/growatt/growattAdapter.php';
 
 $cacheKey = 'growatt:normalized-plants';
 $hydrate = filter_var($_GET['hydrate'] ?? false, FILTER_VALIDATE_BOOLEAN);
+$forceRefresh = filter_var($_GET['refresh'] ?? $_GET['forceRefresh'] ?? false, FILTER_VALIDATE_BOOLEAN);
 $cacheKey .= $hydrate ? ':hydrated' : ':fast';
-$cached = api_cache_get($cacheKey, $hydrate ? 60 : 300);
+$cached = $forceRefresh ? null : api_cache_get($cacheKey, $hydrate ? 60 : 300);
 if ($cached !== null) {
     $cached['cached'] = true;
     api_json($cached);
 }
 
 $plants = [];
-$plantList = growatt_get_plants();
+$plantList = growatt_get_plants($forceRefresh);
 foreach (($plantList['records'] ?? []) as $station) {
     if (!is_array($station)) {
         continue;
@@ -24,7 +25,7 @@ foreach (($plantList['records'] ?? []) as $station) {
     $kpi = [];
     if ($hydrate && $plantId !== '') {
         try {
-            $kpi = growatt_get_plant_data($plantId)['record'] ?? [];
+            $kpi = growatt_get_plant_data($plantId, $forceRefresh)['record'] ?? [];
         } catch (Throwable) {
             $kpi = [];
         }

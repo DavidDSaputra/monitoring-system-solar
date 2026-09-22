@@ -3,14 +3,10 @@ import 'package:flutter/services.dart';
 
 import 'config/app_theme.dart';
 import 'config/app_constants.dart';
-import 'config/env_loader.dart';
 import 'screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Load public web config or local native credentials.
-  await loadEnvironment();
 
   // Set system UI overlay style for clean light theme
   SystemChrome.setSystemUIOverlayStyle(

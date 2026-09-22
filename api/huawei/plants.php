@@ -6,14 +6,15 @@ require_once dirname(__DIR__) . '/services/huawei/huaweiKpiService.php';
 require_once dirname(__DIR__) . '/adapters/huawei/huaweiAdapter.php';
 
 $cacheKey = 'huawei:normalized-plants';
-$cached = api_cache_get($cacheKey, 30);
+$forceRefresh = filter_var($_GET['refresh'] ?? $_GET['forceRefresh'] ?? false, FILTER_VALIDATE_BOOLEAN);
+$cached = $forceRefresh ? null : api_cache_get($cacheKey, 30);
 if ($cached !== null) {
     $cached['cached'] = true;
     api_json($cached);
 }
 
 try {
-    $stations = huawei_get_stations();
+    $stations = huawei_get_stations($forceRefresh);
     $plants = [];
     $stationRecords = array_values(array_filter($stations['records'] ?? [], 'is_array'));
     $plantCodes = array_values(array_filter(array_map(
@@ -23,7 +24,7 @@ try {
     $kpiByStation = [];
 
     foreach (array_chunk($plantCodes, 50) as $chunk) {
-        $kpis = huawei_get_station_realtime_kpis($chunk);
+        $kpis = huawei_get_station_realtime_kpis($chunk, $forceRefresh);
         foreach (($kpis['records'] ?? []) as $kpiRecord) {
             if (!is_array($kpiRecord)) {
                 continue;

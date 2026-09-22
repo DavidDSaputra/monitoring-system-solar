@@ -17,25 +17,44 @@ class GrowattMonitoringService {
     : _baseUrls = _resolveBaseUrls(baseUrl),
       _httpClient = httpClient ?? http.Client();
 
-  Future<List<GrowattPlant>> getPlants() async {
-    final data = await _get('growatt/plants.php');
+  Future<List<GrowattPlant>> getPlants({bool forceRefresh = false}) async {
+    final data = await _get(
+      'growatt/plants.php',
+      forceRefresh ? {'refresh': 'true'} : null,
+    );
     return _list(data).map(GrowattPlant.fromJson).toList();
   }
 
-  Future<GrowattPlant> getRealtimePlant(String plantCode) async {
+  Future<GrowattPlant> getRealtimePlant(
+    String plantCode, {
+    bool forceRefresh = false,
+  }) async {
     final data = await _get('growatt/station_realtime.php', {
       'plantCode': plantCode,
+      if (forceRefresh) 'refresh': 'true',
     });
     return GrowattPlant.fromJson(_map(data));
   }
 
-  Future<List<GrowattDevice>> getDevices(String plantCode) async {
-    final data = await _get('growatt/devices.php', {'plantCode': plantCode});
+  Future<List<GrowattDevice>> getDevices(
+    String plantCode, {
+    bool forceRefresh = false,
+  }) async {
+    final data = await _get('growatt/devices.php', {
+      'plantCode': plantCode,
+      if (forceRefresh) 'refresh': 'true',
+    });
     return _list(data).map(GrowattDevice.fromJson).toList();
   }
 
-  Future<List<GrowattPowerPoint>> getPowerPoints(String plantCode) async {
-    final data = await _get('growatt/power.php', {'plantCode': plantCode});
+  Future<List<GrowattPowerPoint>> getPowerPoints(
+    String plantCode, {
+    bool forceRefresh = false,
+  }) async {
+    final data = await _get('growatt/power.php', {
+      'plantCode': plantCode,
+      if (forceRefresh) 'refresh': 'true',
+    });
     return _list(data).map(GrowattPowerPoint.fromJson).toList();
   }
 

@@ -9,10 +9,12 @@ import 'huawei_dashboard_screen.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
 
-const _pickerBg = Color(0xFFF6F7FB);
+const _pickerBg = Color(0xFFFFF8F2);
 const _pickerInk = Color(0xFF111827);
 const _pickerMuted = Color(0xFF667085);
-const _midnight = Color(0xFF121826);
+const _pickerOrange = Color(0xFFF97316);
+const _pickerOrangeSoft = Color(0xFFFFF1E6);
+const _pickerBorder = Color(0xFFF4D6BF);
 
 class PlatformPickerScreen extends StatefulWidget {
   const PlatformPickerScreen({super.key});
@@ -103,123 +105,70 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
   }
 
   Widget _buildHeader(BuildContext context) {
-    return DecoratedBox(
+    return Container(
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF111827), Color(0xFF1D4ED8), Color(0xFFFF7A1A)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          stops: [0.0, 0.58, 1.0],
-        ),
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: _pickerBorder)),
       ),
       child: SafeArea(
         bottom: false,
-        child: Stack(
-          children: [
-            Positioned(
-              right: -42,
-              top: 16,
-              child: Transform.rotate(
-                angle: -0.22,
-                child: Container(
-                  width: 154,
-                  height: 68,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.10),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              left: -52,
-              bottom: 14,
-              child: Transform.rotate(
-                angle: 0.18,
-                child: Container(
-                  width: 132,
-                  height: 58,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.08),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 30),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        height: 38,
-                        padding: const EdgeInsets.symmetric(horizontal: 11),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.92),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Image.asset(
-                          'assets/images/jarwinn_logo.png',
-                          width: 112,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, _, _) => const Text(
-                            'JARWINN',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                              color: _pickerInk,
-                            ),
-                          ),
+                  Container(
+                    height: 40,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: _pickerOrangeSoft,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _pickerBorder),
+                    ),
+                    child: Image.asset(
+                      'assets/images/jarwinn_logo.png',
+                      width: 112,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => const Text(
+                        'JARWINN',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          color: _pickerInk,
                         ),
                       ),
-                      const Spacer(),
-                      _LogoutButton(),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  _heroChip(),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Monitoring Hub',
-                    style: TextStyle(
-                      fontSize: 31,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      height: 1.02,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    AppConstants.appTagline,
-                    style: TextStyle(
-                      fontSize: 13,
-                      height: 1.35,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white.withValues(alpha: 0.78),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(child: _heroStat('3', 'Active')),
-                      const SizedBox(width: 8),
-                      Expanded(child: _heroStat('Live', 'Backend')),
-                      const SizedBox(width: 8),
-                      Expanded(child: _heroStat('Mobile', 'Ready')),
-                    ],
-                  ),
+                  const Spacer(),
+                  _LogoutButton(),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: 22),
+              _heroChip(),
+              const SizedBox(height: 12),
+              const Text(
+                'Pilih platform',
+                style: TextStyle(
+                  fontSize: 30,
+                  fontWeight: FontWeight.w900,
+                  color: _pickerInk,
+                  height: 1.05,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                AppConstants.appTagline,
+                style: const TextStyle(
+                  fontSize: 13,
+                  height: 1.35,
+                  fontWeight: FontWeight.w600,
+                  color: _pickerMuted,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -229,60 +178,21 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.14),
+        color: _pickerOrangeSoft,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+        border: Border.all(color: _pickerBorder),
       ),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 15),
+          Icon(Icons.grid_view_rounded, color: _pickerOrange, size: 15),
           SizedBox(width: 6),
           Text(
-            'Solar Command Center',
+            'Monitoring solar',
             style: TextStyle(
-              color: Colors.white,
+              color: _pickerOrange,
               fontSize: 11,
               fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _heroStat(String value, String label) {
-    return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.70),
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -308,9 +218,7 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
       builder: (context, snapshot) {
         final health = snapshot.data;
         final failed = snapshot.hasError;
-        final color = failed
-            ? AppColors.alarm
-            : (health?.isOk == true ? AppColors.online : AppColors.warning);
+        final color = failed ? _pickerMuted : _pickerOrange;
         final title = failed
             ? 'Connection check'
             : 'System ${health?.status.toUpperCase() ?? 'checking'}';
@@ -322,14 +230,14 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
           duration: const Duration(milliseconds: 220),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: _midnight,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+            border: Border.all(color: _pickerBorder),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.14),
-                blurRadius: 22,
-                offset: const Offset(0, 12),
+                color: _pickerOrange.withValues(alpha: 0.06),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
@@ -339,7 +247,7 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.18),
+                  color: color.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -355,8 +263,8 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
                   children: [
                     Text(
                       title,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.96),
+                      style: const TextStyle(
+                        color: _pickerInk,
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
                       ),
@@ -366,10 +274,7 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFFB8C0CC),
-                        fontSize: 11,
-                      ),
+                      style: const TextStyle(color: _pickerMuted, fontSize: 11),
                     ),
                     if (health != null) ...[
                       const SizedBox(height: 9),
@@ -394,7 +299,7 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
                 icon: const Icon(
                   Icons.refresh_rounded,
                   size: 19,
-                  color: Colors.white,
+                  color: _pickerOrange,
                 ),
               ),
             ],
@@ -406,17 +311,13 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
 
   Widget _providerPill(String label, ProviderHealth? provider) {
     final status = provider?.status ?? 'unknown';
-    final color = switch (status) {
-      'ok' => AppColors.online,
-      'stale' => AppColors.warning,
-      'warming' => AppColors.primary,
-      _ => AppColors.offline,
-    };
+    final usable = status == 'ok' || status == 'stale';
+    final color = usable ? _pickerOrange : _pickerMuted;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.16),
+        color: usable ? _pickerOrangeSoft : const Color(0xFFF3F4F6),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -457,8 +358,8 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
     name: 'SolisCloud',
     description: 'Solis inverter monitoring via SolisCloud API',
     tag: 'Solis',
-    color: Color(0xFFF97316),
-    bgColor: Color(0xFFFFF7ED),
+    color: _pickerOrange,
+    bgColor: _pickerOrangeSoft,
     icon: Icons.solar_power_rounded,
     logoAsset: 'assets/images/solis-logo.png',
     apiLabel: 'SolisCloud API v1',
@@ -468,8 +369,8 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
     name: 'Huawei FusionSolar',
     description: 'Huawei inverter monitoring via backend API',
     tag: 'Huawei',
-    color: Color(0xFF2563EB),
-    bgColor: Color(0xFFEFF6FF),
+    color: _pickerOrange,
+    bgColor: _pickerOrangeSoft,
     icon: Icons.memory_rounded,
     logoAsset: 'assets/images/fusionsolar-logo.jpg',
     apiLabel: 'FusionSolar Northbound',
@@ -479,8 +380,8 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
     name: 'Growatt',
     description: 'Growatt inverter monitoring via backend API',
     tag: 'Growatt',
-    color: Color(0xFF16A34A),
-    bgColor: Color(0xFFF0FDF4),
+    color: _pickerOrange,
+    bgColor: _pickerOrangeSoft,
     icon: Icons.bolt_rounded,
     logoAsset: 'assets/images/Growatt-logo.png',
     apiLabel: 'Growatt Open API',
@@ -491,8 +392,8 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
       name: 'Deye / Solarman',
       description: 'Deye & rebranded inverter via Solarman API',
       tag: 'Deye',
-      color: Color(0xFF1D4ED8),
-      bgColor: Color(0xFFEFF6FF),
+      color: _pickerMuted,
+      bgColor: Color(0xFFF3F4F6),
       icon: Icons.electrical_services_rounded,
       apiLabel: 'Solarman Business API',
     ),
@@ -526,11 +427,11 @@ class _LogoutButton extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.13),
+          color: _pickerOrangeSoft,
           shape: BoxShape.circle,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+          border: Border.all(color: _pickerBorder),
         ),
-        child: const Icon(Icons.logout_rounded, size: 18, color: Colors.white),
+        child: const Icon(Icons.logout_rounded, size: 18, color: _pickerOrange),
       ),
     );
   }
@@ -634,15 +535,13 @@ class _PlatformCardState extends State<_PlatformCard> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
-                      color: isActive
-                          ? brand.color.withValues(alpha: 0.22)
-                          : AppColors.surfaceBorder,
+                      color: isActive ? _pickerBorder : AppColors.surfaceBorder,
                       width: 1,
                     ),
                     boxShadow: isActive
                         ? [
                             BoxShadow(
-                              color: brand.color.withValues(
+                              color: _pickerOrange.withValues(
                                 alpha: lift ? 0.16 : 0.08,
                               ),
                               blurRadius: lift ? 22 : 14,
@@ -655,20 +554,6 @@ class _PlatformCardState extends State<_PlatformCard> {
                     borderRadius: BorderRadius.circular(18),
                     child: Column(
                       children: [
-                        Container(
-                          height: 5,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                brand.color,
-                                brand.color.withValues(alpha: 0.42),
-                                const Color(0xFFFFFFFF),
-                              ],
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                            ),
-                          ),
-                        ),
                         Padding(
                           padding: const EdgeInsets.fromLTRB(15, 14, 14, 15),
                           child: Row(
@@ -763,7 +648,7 @@ class _PlatformCardState extends State<_PlatformCard> {
                                 height: 34,
                                 decoration: BoxDecoration(
                                   color: isActive
-                                      ? brand.color.withValues(alpha: 0.10)
+                                      ? _pickerOrangeSoft
                                       : const Color(0xFFF3F4F6),
                                   shape: BoxShape.circle,
                                 ),
@@ -773,7 +658,7 @@ class _PlatformCardState extends State<_PlatformCard> {
                                       : Icons.lock_outline_rounded,
                                   size: 18,
                                   color: isActive
-                                      ? brand.color
+                                      ? _pickerOrange
                                       : AppColors.textTertiary,
                                 ),
                               ),
@@ -802,9 +687,7 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: isActive
-            ? AppColors.online.withValues(alpha: 0.12)
-            : AppColors.surfaceLight,
+        color: isActive ? _pickerOrangeSoft : AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
@@ -812,7 +695,7 @@ class _StatusBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w700,
-          color: isActive ? AppColors.online : AppColors.textTertiary,
+          color: isActive ? _pickerOrange : AppColors.textTertiary,
         ),
       ),
     );

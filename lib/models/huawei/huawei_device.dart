@@ -8,6 +8,7 @@ class HuaweiDevice {
   final double dailyEnergy;
   final double totalEnergy;
   final String? updatedAt;
+  final Map<String, dynamic> raw;
 
   const HuaweiDevice({
     required this.id,
@@ -19,6 +20,7 @@ class HuaweiDevice {
     required this.dailyEnergy,
     required this.totalEnergy,
     this.updatedAt,
+    this.raw = const {},
   });
 
   factory HuaweiDevice.fromJson(Map<String, dynamic> json) {
@@ -46,6 +48,7 @@ class HuaweiDevice {
         _pick(json, ['totalEnergy', 'total_power', 'eTotal']),
       ),
       updatedAt: _textOrNull(_pick(json, ['updatedAt', 'dataTimestamp'])),
+      raw: _raw(json),
     );
   }
 
@@ -88,5 +91,12 @@ class HuaweiDevice {
     }
     if (value.contains('fault') || value.contains('error')) return 'fault';
     return 'unknown';
+  }
+
+  static Map<String, dynamic> _raw(Map<String, dynamic> json) {
+    final raw = json['raw'];
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    return json;
   }
 }

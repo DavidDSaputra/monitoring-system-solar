@@ -20,7 +20,7 @@ call :check "%BASE_URL%/huawei/plants.php"
 call :check "%BASE_URL%/growatt/plants.php"
 
 echo.
-echo Mobile debug tunnel is ready. Stop and run the Flutter app again if app.env changed.
+echo Mobile debug tunnel is ready. Run Flutter with --dart-define=MONITORING_API_BASE_URL=http://localhost:8080/jarwinn-monitoring/api.
 exit /b 0
 
 :check

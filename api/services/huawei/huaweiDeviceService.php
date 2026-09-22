@@ -14,10 +14,22 @@ function huawei_get_dev_list(string $plantCode, bool $forceRefresh = false): arr
         }
     }
 
-    $response = huawei_request('/thirdData/getDevList', [
-        'stationCodes' => $plantCode,
-    ]);
-    $records = huawei_records_from_response($response);
+    try {
+        $response = huawei_request('/thirdData/getDevList', [
+            'stationCodes' => $plantCode,
+        ]);
+        $records = huawei_records_from_response($response);
+    } catch (Throwable $e) {
+        $stale = api_cache_get_stale($cacheKey, 86400);
+        if ($stale !== null) {
+            $stale['cached'] = true;
+            $stale['stale'] = true;
+            $stale['staleReason'] = $e->getMessage();
+            return $stale;
+        }
+
+        throw $e;
+    }
     $payload = [
         'records' => $records,
         'total' => count($records),
@@ -39,10 +51,22 @@ function huawei_get_dev_real_kpi(array|string $deviceIds, bool $forceRefresh = f
         }
     }
 
-    $response = huawei_request('/thirdData/getDevRealKpi', [
-        'devIds' => $ids,
-    ]);
-    $records = huawei_records_from_response($response);
+    try {
+        $response = huawei_request('/thirdData/getDevRealKpi', [
+            'devIds' => $ids,
+        ]);
+        $records = huawei_records_from_response($response);
+    } catch (Throwable $e) {
+        $stale = api_cache_get_stale($cacheKey, 86400);
+        if ($stale !== null) {
+            $stale['cached'] = true;
+            $stale['stale'] = true;
+            $stale['staleReason'] = $e->getMessage();
+            return $stale;
+        }
+
+        throw $e;
+    }
     $payload = [
         'records' => $records,
         'total' => count($records),

@@ -45,26 +45,40 @@ class _HuaweiPlantDetailScreenState extends State<HuaweiPlantDetailScreen> {
 
     try {
       final results = await Future.wait([
-        _service.getRealtimePlant(widget.plant.plantCode),
-        _service.getDevices(widget.plant.plantCode),
+        _guard(_service.getRealtimePlant(widget.plant.plantCode)),
+        _guard(_service.getDevices(widget.plant.plantCode)),
       ]);
-      final realtime = results[0] as HuaweiPlant;
-      final devices = results[1] as List<HuaweiDevice>;
+      final realtime = results[0] as HuaweiPlant?;
+      final devices = results[1] as List<HuaweiDevice>?;
       if (!mounted) return;
-      final merged = widget.plant.mergeRealtime(realtime);
+      final merged = realtime == null
+          ? _currentPlant
+          : widget.plant.mergeRealtime(realtime);
       setState(() {
         _plant = merged;
-        _devices = devices;
+        if (devices != null) _devices = devices;
         _appendPowerSample(merged.currentPower);
+        _errorMessage = realtime == null && devices == null
+            ? 'Detail Huawei belum tersinkron. Tarik untuk refresh.'
+            : null;
         _isLoading = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = 'Huawei data unavailable';
+        _errorMessage =
+            'Menampilkan data terakhir Huawei. Tarik untuk refresh.';
         _appendPowerSample(_currentPlant.currentPower);
         _isLoading = false;
       });
+    }
+  }
+
+  Future<T?> _guard<T>(Future<T> future) async {
+    try {
+      return await future;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -136,7 +150,7 @@ class _HuaweiPlantDetailScreenState extends State<HuaweiPlantDetailScreen> {
                       padding: EdgeInsets.all(28),
                       child: Center(
                         child: Text(
-                          'No Huawei devices found',
+                          'Device Huawei belum terdeteksi',
                           style: TextStyle(
                             fontSize: 13,
                             color: AppColors.textSecondary,
@@ -399,7 +413,9 @@ class _HuaweiPlantDetailScreenState extends State<HuaweiPlantDetailScreen> {
   Widget _buildMapLocation(HuaweiPlant plant) {
     final location = plant.latitude.isNotEmpty && plant.longitude.isNotEmpty
         ? '${plant.latitude}, ${plant.longitude}'
-        : 'Location unavailable';
+        : (plant.address.isEmpty
+              ? 'Koordinat plant belum tersedia'
+              : plant.address);
     return Container(
       height: 128,
       padding: const EdgeInsets.all(15),
@@ -602,7 +618,8 @@ class _HuaweiPlantDetailScreenState extends State<HuaweiPlantDetailScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              _errorMessage ?? 'Huawei data unavailable',
+              _errorMessage ??
+                  'Menampilkan data terakhir Huawei. Tarik untuk refresh.',
               style: const TextStyle(
                 fontSize: 12,
                 color: AppColors.textSecondary,

@@ -46,28 +46,47 @@ class _GrowattPlantDetailScreenState extends State<GrowattPlantDetailScreen> {
 
     try {
       final results = await Future.wait([
-        _service.getRealtimePlant(widget.plant.plantCode),
-        _service.getDevices(widget.plant.plantCode),
-        _service.getPowerPoints(widget.plant.plantCode),
+        _guard(_service.getRealtimePlant(widget.plant.plantCode)),
+        _guard(_service.getDevices(widget.plant.plantCode)),
+        _guard(_service.getPowerPoints(widget.plant.plantCode)),
       ]);
-      final realtime = results[0] as GrowattPlant;
-      final devices = results[1] as List<GrowattDevice>;
-      final powerPoints = results[2] as List<GrowattPowerPoint>;
+      final realtime = results[0] as GrowattPlant?;
+      final devices = results[1] as List<GrowattDevice>?;
+      final powerPoints = results[2] as List<GrowattPowerPoint>?;
       if (!mounted) return;
-      final merged = widget.plant.mergeRealtime(realtime);
+      final merged = realtime == null
+          ? _currentPlant
+          : widget.plant.mergeRealtime(realtime);
       setState(() {
         _plant = merged;
-        _devices = devices;
-        _setPowerSamples(powerPoints, merged.currentPower);
+        if (devices != null) _devices = devices;
+        if (powerPoints != null) {
+          _setPowerSamples(powerPoints, merged.currentPower);
+        } else {
+          _appendPowerSample(merged.currentPower);
+        }
+        _errorMessage =
+            realtime == null && devices == null && powerPoints == null
+            ? 'Detail Growatt belum tersinkron. Tarik untuk refresh.'
+            : null;
         _isLoading = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = 'Growatt data unavailable';
+        _errorMessage =
+            'Menampilkan data terakhir Growatt. Tarik untuk refresh.';
         _appendPowerSample(_currentPlant.currentPower);
         _isLoading = false;
       });
+    }
+  }
+
+  Future<T?> _guard<T>(Future<T> future) async {
+    try {
+      return await future;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -154,7 +173,7 @@ class _GrowattPlantDetailScreenState extends State<GrowattPlantDetailScreen> {
                       padding: EdgeInsets.all(28),
                       child: Center(
                         child: Text(
-                          'No Growatt devices found',
+                          'Device Growatt belum terdeteksi',
                           style: TextStyle(
                             fontSize: 13,
                             color: AppColors.textSecondary,
@@ -417,7 +436,9 @@ class _GrowattPlantDetailScreenState extends State<GrowattPlantDetailScreen> {
   Widget _buildMapLocation(GrowattPlant plant) {
     final location = plant.latitude.isNotEmpty && plant.longitude.isNotEmpty
         ? '${plant.latitude}, ${plant.longitude}'
-        : 'Location unavailable';
+        : (plant.address.isEmpty
+              ? 'Koordinat plant belum tersedia'
+              : plant.address);
     return Container(
       height: 128,
       padding: const EdgeInsets.all(15),
@@ -620,7 +641,8 @@ class _GrowattPlantDetailScreenState extends State<GrowattPlantDetailScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              _errorMessage ?? 'Growatt data unavailable',
+              _errorMessage ??
+                  'Menampilkan data terakhir Growatt. Tarik untuk refresh.',
               style: const TextStyle(
                 fontSize: 12,
                 color: AppColors.textSecondary,

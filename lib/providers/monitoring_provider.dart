@@ -4,6 +4,7 @@ import '../models/collector.dart';
 import '../models/energy_data.dart';
 import '../models/inverter.dart';
 import '../models/monitoring_overview.dart';
+import '../models/paged_station_result.dart';
 import '../models/station.dart';
 import '../models/station_detail.dart';
 
@@ -41,4 +42,12 @@ abstract class MonitoringProvider {
   });
 
   void dispose();
+}
+
+abstract class PagedMonitoringProvider {
+  Future<PagedStationResult> getPlantsPage({
+    required int pageNo,
+    required int pageSize,
+    bool forceRefresh = false,
+  });
 }

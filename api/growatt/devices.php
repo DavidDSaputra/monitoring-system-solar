@@ -5,11 +5,12 @@ require_once dirname(__DIR__) . '/services/growatt/growattDeviceService.php';
 require_once dirname(__DIR__) . '/adapters/growatt/growattAdapter.php';
 
 $plantCode = urldecode(trim((string) ($_GET['plantCode'] ?? '')));
+$forceRefresh = filter_var($_GET['refresh'] ?? $_GET['forceRefresh'] ?? false, FILTER_VALIDATE_BOOLEAN);
 if ($plantCode === '') {
     api_fail(400, 'Growatt plantCode is required');
 }
 
-$result = growatt_get_devices($plantCode);
+$result = growatt_get_devices($plantCode, $forceRefresh);
 api_json([
     'success' => true,
     'source' => 'growatt',

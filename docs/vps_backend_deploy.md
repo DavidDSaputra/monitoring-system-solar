@@ -17,14 +17,16 @@ This package also works on cPanel/shared hosting such as Dewaweb as long as PHP 
 ## Setup
 
 1. Copy `.env.example` to `.env` on the server.
-2. Fill provider credentials in `.env`.
-3. Keep `.env` outside public access when possible. If you must keep it in the uploaded package folder, the included root `.htaccess` blocks direct access to `.env`.
-4. Make `api/cache` writable by PHP.
-5. Test:
+2. Set a new, strong `APP_LOGIN_USERNAME` and `APP_LOGIN_PASSWORD`. Do not reuse the old password from the Flutter source history.
+3. Fill provider credentials in `.env`.
+4. Keep `.env` outside public access when possible. If you must keep it in the uploaded package folder, the included root `.htaccess` blocks direct access to `.env`.
+5. Make `api/cache` writable by PHP.
+6. Test:
 
 ```bash
-curl https://your-domain.com/jarwinn-monitoring/api/health.php
-curl https://your-domain.com/jarwinn-monitoring/api/monitoring/plants.php?source=all
+curl https://api.solisinverters.co.id/api/health.php
+curl -i -X POST https://api.solisinverters.co.id/api/auth/login.php -H "Content-Type: application/json" --data '{"username":"YOUR_USERNAME","password":"YOUR_PASSWORD"}'
+curl https://api.solisinverters.co.id/api/monitoring/plants.php?source=all
 ```
 
 ## Warm Cache
@@ -50,7 +52,7 @@ On cPanel shared hosting, use Cron Jobs and adjust the PHP binary/path to your h
 If direct PHP CLI is restricted, use curl:
 
 ```bash
-/usr/bin/curl -s "https://your-domain.com/jarwinn-monitoring/api/warm_cache.php?target=all" >/dev/null 2>&1
+/usr/bin/curl -s "https://api.solisinverters.co.id/api/warm_cache.php?target=all" >/dev/null 2>&1
 ```
 
 ## Mobile App
@@ -58,7 +60,7 @@ If direct PHP CLI is restricted, use curl:
 After the backend is online, set the Flutter app base URL to your public API:
 
 ```env
-MONITORING_API_BASE_URLS=https://your-domain.com/jarwinn-monitoring/api
+MONITORING_API_BASE_URLS=https://api.solisinverters.co.id/api
 MONITORING_API_MOBILE_LOCAL_FIRST=false
 ```
 

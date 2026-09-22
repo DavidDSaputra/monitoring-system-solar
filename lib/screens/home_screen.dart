@@ -15,10 +15,10 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
   static const Color _shellBackground = Color(0xFFF8FAFC);
-  static const Color _navSurface = Color(0xF2FFFFFF);
-  static const Color _navBorder = Color(0xFFE2E8F0);
+  static const Color _navSurface = Colors.white;
   static const Color _navActive = Color(0xFFF97316); // JARWINN orange
-  static const Color _navMuted = Color(0xFF94A3B8);
+  static const Color _navMuted = Color(0xFF475569);
+  static const Color _navLabelMuted = Color(0xFF64748B);
 
   @override
   Widget build(BuildContext context) {
@@ -34,54 +34,80 @@ class _HomeScreenState extends State<HomeScreen> {
           const ProfileScreen(),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            decoration: BoxDecoration(
-              color: _navSurface,
-              borderRadius: BorderRadius.circular(26),
-              border: Border.all(color: _navBorder),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 24,
-                  offset: const Offset(0, 12),
+      bottomNavigationBar: _buildBottomBar(),
+    );
+  }
+
+  Widget _buildBottomBar() {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
+        child: SizedBox(
+          height: 86,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.bottomCenter,
+            children: [
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  height: 58,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: _navSurface,
+                    borderRadius: BorderRadius.circular(2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.14),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      _navItem(
+                        0,
+                        Icons.solar_power_rounded,
+                        Icons.solar_power_outlined,
+                        'Plants',
+                      ),
+                      _navItem(
+                        1,
+                        Icons.notifications_rounded,
+                        Icons.notifications_outlined,
+                        'Events',
+                      ),
+                      const Expanded(child: SizedBox.shrink()),
+                      _navItem(
+                        3,
+                        Icons.build_rounded,
+                        Icons.build_outlined,
+                        'Service',
+                      ),
+                      _navItem(
+                        4,
+                        Icons.person_rounded,
+                        Icons.person_outline,
+                        'Me',
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _navItem(
-                  0,
-                  Icons.solar_power_rounded,
-                  Icons.solar_power_outlined,
-                  'Plants',
-                ),
-                _navItem(
-                  1,
-                  Icons.notifications_rounded,
-                  Icons.notifications_outlined,
-                  'Events',
-                ),
-                _navItem(
+              ),
+              Positioned(
+                top: 0,
+                child: _centerNavItem(
                   2,
                   Icons.bar_chart_rounded,
                   Icons.bar_chart_outlined,
                   'Overview',
                 ),
-                _navItem(
-                  3,
-                  Icons.build_rounded,
-                  Icons.build_outlined,
-                  'Service',
-                ),
-                _navItem(4, Icons.person_rounded, Icons.person_outline, 'Me'),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -90,45 +116,99 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _navItem(int index, IconData activeIcon, IconData icon, String label) {
     final isActive = _currentIndex == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _currentIndex = index),
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          height: 58,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned(
+                top: 0,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: isActive ? 38 : 0,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: _navActive,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 9),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isActive ? activeIcon : icon,
+                      size: 21,
+                      color: isActive ? _navActive : _navMuted,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: isActive
+                            ? FontWeight.w700
+                            : FontWeight.w600,
+                        color: isActive ? _navActive : _navLabelMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _centerNavItem(
+    int index,
+    IconData activeIcon,
+    IconData icon,
+    String label,
+  ) {
+    final isActive = _currentIndex == index;
     return GestureDetector(
       onTap: () => setState(() => _currentIndex = index),
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: isActive ? _navActive : Colors.transparent,
-                shape: BoxShape.circle,
-                boxShadow: isActive
-                    ? [
-                        BoxShadow(
-                          color: _navActive.withValues(alpha: 0.22),
-                          blurRadius: 18,
-                          offset: const Offset(0, 10),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Icon(
-                isActive ? activeIcon : icon,
-                size: 20,
-                color: isActive ? Colors.white : _navMuted,
-              ),
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+        width: 68,
+        height: 68,
+        decoration: BoxDecoration(
+          color: _navActive,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: _navActive.withValues(alpha: isActive ? 0.34 : 0.22),
+              blurRadius: isActive ? 22 : 18,
+              offset: const Offset(0, 10),
             ),
-            const SizedBox(height: 2),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(isActive ? activeIcon : icon, size: 23, color: Colors.white),
+            const SizedBox(height: 4),
             Text(
               label,
-              style: TextStyle(
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
                 fontSize: 10,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                color: isActive ? _navActive : _navMuted,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
               ),
             ),
           ],

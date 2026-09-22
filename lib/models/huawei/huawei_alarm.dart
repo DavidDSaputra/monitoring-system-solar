@@ -12,6 +12,7 @@ class HuaweiAlarm {
   final String alarmCause;
   final String repairSuggestion;
   final String occurrenceTime;
+  final Map<String, dynamic> raw;
 
   const HuaweiAlarm({
     required this.alarmId,
@@ -27,6 +28,7 @@ class HuaweiAlarm {
     required this.alarmCause,
     required this.repairSuggestion,
     required this.occurrenceTime,
+    this.raw = const {},
   });
 
   factory HuaweiAlarm.fromJson(Map<String, dynamic> json) {
@@ -44,6 +46,7 @@ class HuaweiAlarm {
       alarmCause: _text(json['alarmCause']),
       repairSuggestion: _text(json['repairSuggestion']),
       occurrenceTime: _text(json['occurrenceTime']),
+      raw: _raw(json),
     );
   }
 
@@ -56,5 +59,12 @@ class HuaweiAlarm {
   static int _int(dynamic value) {
     if (value is int) return value;
     return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  static Map<String, dynamic> _raw(Map<String, dynamic> json) {
+    final raw = json['raw'];
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    return json;
   }
 }

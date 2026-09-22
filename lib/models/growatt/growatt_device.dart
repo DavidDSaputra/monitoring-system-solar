@@ -8,6 +8,7 @@ class GrowattDevice {
   final double dailyEnergy;
   final double totalEnergy;
   final String? updatedAt;
+  final Map<String, dynamic> raw;
 
   const GrowattDevice({
     required this.id,
@@ -19,6 +20,7 @@ class GrowattDevice {
     required this.dailyEnergy,
     required this.totalEnergy,
     this.updatedAt,
+    this.raw = const {},
   });
 
   factory GrowattDevice.fromJson(Map<String, dynamic> json) {
@@ -37,6 +39,7 @@ class GrowattDevice {
       dailyEnergy: _number(_pick(json, ['dailyEnergy', 'power_today'])),
       totalEnergy: _number(_pick(json, ['totalEnergy', 'power_total'])),
       updatedAt: _textOrNull(_pick(json, ['updatedAt', 'last_update_time'])),
+      raw: _raw(json),
     );
   }
 
@@ -81,5 +84,12 @@ class GrowattDevice {
       return 'fault';
     }
     return 'unknown';
+  }
+
+  static Map<String, dynamic> _raw(Map<String, dynamic> json) {
+    final raw = json['raw'];
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    return json;
   }
 }

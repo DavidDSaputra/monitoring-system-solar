@@ -17,36 +17,41 @@ class MonitoringHealthService {
     Object? lastError;
 
     for (final baseUrl in prioritizeMonitoringBaseUrls(_baseUrls)) {
-      try {
-        final uri = Uri.parse('$baseUrl/health.php');
-        final response = await _httpClient
-            .get(uri)
-            .timeout(
-              monitoringApiTimeoutFor(
-                baseUrl,
-                fallback: const Duration(seconds: 3),
-              ),
+      for (var attempt = 0; attempt < 2; attempt++) {
+        try {
+          final uri = Uri.parse('$baseUrl/health.php');
+          final response = await _httpClient
+              .get(uri)
+              .timeout(
+                monitoringApiTimeoutFor(
+                  baseUrl,
+                  fallback: const Duration(seconds: 8),
+                ),
+              );
+          final decoded = jsonDecode(response.body);
+
+          if (decoded is! Map<String, dynamic>) {
+            throw const MonitoringHealthException('Invalid health response');
+          }
+          if (response.statusCode != 200 || decoded['success'] != true) {
+            throw MonitoringHealthException(
+              decoded['message']?.toString() ?? 'Backend health unavailable',
             );
-        final decoded = jsonDecode(response.body);
+          }
 
-        if (decoded is! Map<String, dynamic>) {
-          throw const MonitoringHealthException('Invalid health response');
+          rememberMonitoringBaseUrl(baseUrl);
+          return MonitoringHealth.fromJson(decoded, baseUrl);
+        } catch (e) {
+          lastError = e;
+          if (attempt == 0) {
+            await Future<void>.delayed(const Duration(milliseconds: 700));
+          }
         }
-        if (response.statusCode != 200 || decoded['success'] != true) {
-          throw MonitoringHealthException(
-            decoded['message']?.toString() ?? 'Backend health unavailable',
-          );
-        }
-
-        rememberMonitoringBaseUrl(baseUrl);
-        return MonitoringHealth.fromJson(decoded, baseUrl);
-      } catch (e) {
-        lastError = e;
       }
     }
 
     throw MonitoringHealthException(
-      'Backend tidak bisa dihubungi. Debug HP: jalankan adb reverse tcp:8080 tcp:80. Detail: $lastError',
+      'Backend tidak bisa dihubungi. Cek koneksi internet HP atau server monitoring. Detail: $lastError',
     );
   }
 

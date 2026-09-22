@@ -36,8 +36,20 @@ function huawei_get_alarm_list(
         $body['endTime'] = (string) (time() * 1000);
     }
 
-    $response = huawei_request('/thirdData/getAlarmList', $body);
-    $records = huawei_records_from_response($response);
+    try {
+        $response = huawei_request('/thirdData/getAlarmList', $body);
+        $records = huawei_records_from_response($response);
+    } catch (Throwable $e) {
+        $stale = api_cache_get_stale($cacheKey, 86400);
+        if ($stale !== null) {
+            $stale['cached'] = true;
+            $stale['stale'] = true;
+            $stale['staleReason'] = $e->getMessage();
+            return $stale;
+        }
+
+        throw $e;
+    }
     $payload = [
         'records' => $records,
         'total' => count($records),

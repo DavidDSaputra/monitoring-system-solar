@@ -10,12 +10,13 @@ require_once dirname(__DIR__) . '/services/growatt/growattPlantService.php';
 require_once dirname(__DIR__) . '/adapters/growatt/growattAdapter.php';
 
 $source = strtolower(trim((string) ($_GET['source'] ?? 'all')));
+$forceRefresh = filter_var($_GET['refresh'] ?? $_GET['forceRefresh'] ?? false, FILTER_VALIDATE_BOOLEAN);
 $records = [];
 $errors = [];
 
 if ($source === 'all' || $source === 'solis') {
     $solisCacheKey = 'monitoring:plants:solis';
-    $solisCache = api_cache_get($solisCacheKey, 60);
+    $solisCache = $forceRefresh ? null : api_cache_get($solisCacheKey, 60);
     if ($solisCache !== null && isset($solisCache['data']) && is_array($solisCache['data'])) {
         $records = array_merge($records, $solisCache['data']);
     } else {
@@ -25,7 +26,7 @@ if ($source === 'all' || $source === 'solis') {
             api_run_background_php(dirname(__DIR__) . '/warm_cache.php', ['overview']);
         } else {
         try {
-            $solis = monitoring_provider('solis')->plants();
+            $solis = monitoring_provider('solis')->plants($forceRefresh);
             $solisRecords = normalize_records($solis['records'] ?? [], 'normalize_plant');
             api_cache_put($solisCacheKey, [
                 'success' => true,
@@ -46,7 +47,7 @@ if ($source === 'all' || $source === 'solis') {
 
 if ($source === 'all' || $source === 'huawei') {
     $huaweiCacheKey = 'huawei:normalized-plants';
-    $huaweiCache = api_cache_get($huaweiCacheKey, 30);
+    $huaweiCache = $forceRefresh ? null : api_cache_get($huaweiCacheKey, 30);
     if ($huaweiCache !== null && isset($huaweiCache['data']) && is_array($huaweiCache['data'])) {
         $records = array_merge($records, $huaweiCache['data']);
     } else {
@@ -55,7 +56,7 @@ if ($source === 'all' || $source === 'huawei') {
             $records = array_merge($records, $staleHuawei['data']);
         } else {
         try {
-            $stations = huawei_get_stations();
+            $stations = huawei_get_stations($forceRefresh);
             $huaweiPlants = [];
             $stationRecords = array_values(array_filter($stations['records'] ?? [], 'is_array'));
             $plantCodes = array_values(array_filter(array_map(
@@ -65,7 +66,7 @@ if ($source === 'all' || $source === 'huawei') {
             $kpiByStation = [];
             try {
                 foreach (array_chunk($plantCodes, 50) as $chunk) {
-                    $kpis = huawei_get_station_realtime_kpis($chunk);
+                    $kpis = huawei_get_station_realtime_kpis($chunk, $forceRefresh);
                     foreach (($kpis['records'] ?? []) as $kpiRecord) {
                         if (!is_array($kpiRecord)) {
                             continue;
@@ -107,7 +108,7 @@ if ($source === 'all' || $source === 'huawei') {
 
 if ($source === 'all' || $source === 'growatt') {
     $growattCacheKey = 'growatt:normalized-plants:fast';
-    $growattCache = api_cache_get($growattCacheKey, 300);
+    $growattCache = $forceRefresh ? null : api_cache_get($growattCacheKey, 300);
     if ($growattCache !== null && isset($growattCache['data']) && is_array($growattCache['data'])) {
         $records = array_merge($records, $growattCache['data']);
     } else {
@@ -116,7 +117,7 @@ if ($source === 'all' || $source === 'growatt') {
             $records = array_merge($records, $staleGrowatt['data']);
         } else {
         try {
-            $plantList = growatt_get_plants();
+            $plantList = growatt_get_plants($forceRefresh);
             $growattPlants = [];
             foreach (($plantList['records'] ?? []) as $station) {
                 if (!is_array($station)) {

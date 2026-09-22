@@ -19,16 +19,28 @@ function huawei_get_stations(bool $forceRefresh = false): array
     $pageNo = 1;
     $pageSize = 100;
 
-    do {
-        $response = huawei_request('/thirdData/stations', [
-            'pageNo' => $pageNo,
-            'pageSize' => $pageSize,
-        ]);
-        $pageRecords = huawei_records_from_response($response);
-        $records = array_merge($records, $pageRecords);
-        $total = huawei_total_from_response($response, count($records));
-        $pageNo++;
-    } while ($total > count($records) && count($pageRecords) > 0 && $pageNo <= 50);
+    try {
+        do {
+            $response = huawei_request('/thirdData/stations', [
+                'pageNo' => $pageNo,
+                'pageSize' => $pageSize,
+            ]);
+            $pageRecords = huawei_records_from_response($response);
+            $records = array_merge($records, $pageRecords);
+            $total = huawei_total_from_response($response, count($records));
+            $pageNo++;
+        } while ($total > count($records) && count($pageRecords) > 0 && $pageNo <= 50);
+    } catch (Throwable $e) {
+        $stale = api_cache_get_stale($cacheKey, 86400);
+        if ($stale !== null) {
+            $stale['cached'] = true;
+            $stale['stale'] = true;
+            $stale['staleReason'] = $e->getMessage();
+            return $stale;
+        }
+
+        throw $e;
+    }
 
     $payload = [
         'records' => $records,

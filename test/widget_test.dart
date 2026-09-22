@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets('App smoke test', (WidgetTester tester) async {
-    // Placeholder test - app requires .env and network access
+    // Placeholder test - app screens depend on live backend data.
     expect(true, isTrue);
   });
 }

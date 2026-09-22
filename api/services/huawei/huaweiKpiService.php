@@ -14,11 +14,23 @@ function huawei_get_station_realtime_kpi(string $plantCode, bool $forceRefresh =
         }
     }
 
-    $response = huawei_request('/thirdData/getStationRealKpi', [
-        'stationCodes' => $plantCode,
-    ]);
-    $records = huawei_records_from_response($response);
-    $record = $records[0] ?? ($response['data'] ?? $response);
+    try {
+        $response = huawei_request('/thirdData/getStationRealKpi', [
+            'stationCodes' => $plantCode,
+        ]);
+        $records = huawei_records_from_response($response);
+        $record = $records[0] ?? ($response['data'] ?? $response);
+    } catch (Throwable $e) {
+        $stale = api_cache_get_stale($cacheKey, 86400);
+        if ($stale !== null) {
+            $stale['cached'] = true;
+            $stale['stale'] = true;
+            $stale['staleReason'] = $e->getMessage();
+            return $stale;
+        }
+
+        throw $e;
+    }
     $payload = [
         'record' => is_array($record) ? $record : [],
         'records' => $records,
@@ -45,12 +57,24 @@ function huawei_get_station_realtime_kpis(array $plantCodes, bool $forceRefresh 
         }
     }
 
-    $response = huawei_request('/thirdData/getStationRealKpi', [
-        'stationCodes' => $stationCodes,
-    ]);
-    $records = huawei_records_from_response($response);
-    if (count($records) === 0 && isset($response['data']) && is_array($response['data'])) {
-        $records = [$response['data']];
+    try {
+        $response = huawei_request('/thirdData/getStationRealKpi', [
+            'stationCodes' => $stationCodes,
+        ]);
+        $records = huawei_records_from_response($response);
+        if (count($records) === 0 && isset($response['data']) && is_array($response['data'])) {
+            $records = [$response['data']];
+        }
+    } catch (Throwable $e) {
+        $stale = api_cache_get_stale($cacheKey, 86400);
+        if ($stale !== null) {
+            $stale['cached'] = true;
+            $stale['stale'] = true;
+            $stale['staleReason'] = $e->getMessage();
+            return $stale;
+        }
+
+        throw $e;
     }
 
     $payload = [

@@ -7,9 +7,10 @@ require_once dirname(__DIR__) . '/adapters/huawei/huaweiAdapter.php';
 
 $plantCode = urldecode(trim((string) ($_GET['plantCode'] ?? '')));
 $historical = filter_var($_GET['historical'] ?? false, FILTER_VALIDATE_BOOLEAN);
+$forceRefresh = filter_var($_GET['refresh'] ?? $_GET['forceRefresh'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
 if ($plantCode === '') {
-    $stations = huawei_get_stations();
+    $stations = huawei_get_stations($forceRefresh);
     $plantCodes = array_values(array_filter(array_map(
         static fn (array $station): string => (string) huawei_pick($station, ['plantCode', 'stationCode', 'dn', 'id'], ''),
         array_values(array_filter($stations['records'] ?? [], 'is_array'))
@@ -18,14 +19,14 @@ if ($plantCode === '') {
 }
 
 $cacheKey = 'huawei:alarms-route:' . sha1($plantCode . ':' . ($historical ? '1' : '0'));
-$cached = api_cache_get($cacheKey, 60);
+$cached = $forceRefresh ? null : api_cache_get($cacheKey, 60);
 if ($cached !== null) {
     $cached['cached'] = true;
     api_json($cached);
 }
 
 try {
-    $result = huawei_get_alarm_list($plantCode, $historical);
+    $result = huawei_get_alarm_list($plantCode, $historical, $forceRefresh);
     $payload = [
         'success' => true,
         'source' => 'huawei',

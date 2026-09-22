@@ -3,6 +3,25 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 
+class SolisApiException extends RuntimeException
+{
+    public function __construct(
+        string $message,
+        public readonly int $statusCode = 502,
+        public readonly array $context = []
+    ) {
+        parent::__construct($message, $statusCode);
+    }
+}
+
+set_exception_handler(static function (Throwable $e): void {
+    if ($e instanceof SolisApiException) {
+        api_fail($e->statusCode, $e->getMessage(), $e->context);
+    }
+
+    throw $e;
+});
+
 function solis_credentials(): array
 {
     $keyId = api_env('SOLIS_API_KEY') ?: api_env('SOLIS_KEY_ID') ?: '';
@@ -10,7 +29,10 @@ function solis_credentials(): array
     $baseUrl = api_env('SOLIS_API_URL', 'https://www.soliscloud.com:13333') ?: 'https://www.soliscloud.com:13333';
 
     if ($keyId === '' || $keySecret === '') {
-        api_fail(500, 'Solis API credentials are missing on the server');
+        throw new SolisApiException(
+            'Solis API credentials are missing on the server',
+            500
+        );
     }
 
     return [$keyId, $keySecret, rtrim($baseUrl, '/')];
@@ -33,7 +55,7 @@ function solis_request(
     [$keyId, $keySecret, $baseUrl] = solis_credentials();
     $bodyJson = json_encode($body, JSON_UNESCAPED_SLASHES);
     if ($bodyJson === false) {
-        api_fail(400, 'Unable to encode Solis request body');
+        throw new SolisApiException('Unable to encode Solis request body', 400);
     }
 
     $contentType = 'application/json';
@@ -44,7 +66,7 @@ function solis_request(
 
     $ch = curl_init($baseUrl . $endpoint);
     if ($ch === false) {
-        api_fail(500, 'Unable to initialize Solis request');
+        throw new SolisApiException('Unable to initialize Solis request', 500);
     }
 
     curl_setopt_array($ch, [
@@ -67,20 +89,32 @@ function solis_request(
     curl_close($ch);
 
     if ($responseBody === false) {
-        api_fail(502, "Solis request failed: {$curlError}");
+        throw new SolisApiException("Solis request failed: {$curlError}");
     }
 
     $payload = json_decode($responseBody, true);
     if (!is_array($payload)) {
-        api_fail(502, 'Solis returned invalid JSON', ['statusCode' => $statusCode]);
+        throw new SolisApiException(
+            'Solis returned invalid JSON',
+            502,
+            ['statusCode' => $statusCode]
+        );
     }
 
     if ($statusCode !== 200) {
-        api_json($payload, $statusCode > 0 ? $statusCode : 502);
+        throw new SolisApiException(
+            $payload['message'] ?? $payload['msg'] ?? 'Solis request failed',
+            $statusCode > 0 ? $statusCode : 502,
+            ['payload' => $payload]
+        );
     }
 
     if (($payload['success'] ?? false) !== true && ($payload['code'] ?? null) !== '0') {
-        api_json($payload, 502);
+        throw new SolisApiException(
+            $payload['message'] ?? $payload['msg'] ?? 'Solis request failed',
+            502,
+            ['payload' => $payload]
+        );
     }
 
     $payload['cached'] = false;

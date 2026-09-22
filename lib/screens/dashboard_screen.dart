@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../config/app_theme.dart';
 import '../models/station.dart';
 import '../models/inverter.dart';
@@ -17,6 +18,15 @@ class _DeviceMetricData {
   final String label;
 
   const _DeviceMetricData({required this.value, required this.label});
+}
+
+class _MetricDisplay {
+  final String value;
+  final String unit;
+
+  const _MetricDisplay(this.value, this.unit);
+
+  String get text => '$value $unit';
 }
 
 class _PlantReveal extends StatefulWidget {
@@ -87,6 +97,9 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen>
     with SingleTickerProviderStateMixin {
   final MonitoringRepository _repository = MonitoringRepository();
+  final ScrollController _plantsScrollController = ScrollController();
+  final TextEditingController _plantSearchController = TextEditingController();
+  final FocusNode _plantSearchFocusNode = FocusNode();
   late TabController _tabController;
 
   // Plants
@@ -97,6 +110,11 @@ class _DashboardScreenState extends State<DashboardScreen>
   Timer? _plantsRealtimeTimer;
   bool _isRealtimeRefreshingPlants = false;
   bool _plantsEnterAnimatedOnce = false;
+  int _visiblePlantLimit = _plantsPerBatch;
+  bool _isLoadingMorePlants = false;
+  bool _isPlantSearchOpen = false;
+  String _plantSearchQuery = '';
+  static const int _plantsPerBatch = 10;
 
   // Inverters
   List<Inverter> _inverters = [];
@@ -120,6 +138,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(_onTabChanged);
+    _plantsScrollController.addListener(_onPlantsScrolled);
     _loadDashboardOverview();
     _startPlantsRealtimeRefresh();
 
@@ -176,6 +195,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
       setState(() {
         _stations = overview.plants;
+        _visiblePlantLimit = _plantsPerBatch;
         _inverters = overview.inverters;
         _batteries = overview.batteries;
         _collectors = overview.collectors;
@@ -228,6 +248,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       if (mounted) {
         setState(() {
           _stations = s;
+          _visiblePlantLimit = _plantsPerBatch;
           _isLoadingPlants = false;
           _lastPlantRefresh = DateTime.now();
         });
@@ -240,6 +261,57 @@ class _DashboardScreenState extends State<DashboardScreen>
         });
       }
     }
+  }
+
+  void _onPlantsScrolled() {
+    if (!_plantsScrollController.hasClients) return;
+    final position = _plantsScrollController.position;
+    if (position.extentAfter < 260) {
+      unawaited(_loadMorePlants());
+    }
+  }
+
+  Future<void> _loadMorePlants() async {
+    if (_isLoadingMorePlants || _isLoadingPlants) return;
+
+    final filtered = _filteredStations;
+    if (_visiblePlantLimit >= filtered.length) return;
+
+    setState(() => _isLoadingMorePlants = true);
+
+    final nextPage = (_visiblePlantLimit ~/ _plantsPerBatch) + 1;
+    final loadingDelay = Future<void>.delayed(
+      const Duration(milliseconds: 450),
+    );
+
+    try {
+      final page = await _repository.getPlantsPage(
+        pageNo: nextPage,
+        pageSize: _plantsPerBatch,
+      );
+      if (!mounted) return;
+
+      final existingIds = _stations.map((station) => station.id).toSet();
+      final freshRecords = page.records
+          .where((station) => !existingIds.contains(station.id))
+          .toList();
+      if (freshRecords.isNotEmpty) {
+        _stations = [..._stations, ...freshRecords];
+      }
+    } catch (_) {
+      // Keep the scroll interaction smooth when the paged endpoint falls back.
+    }
+
+    await loadingDelay;
+    if (!mounted) return;
+
+    setState(() {
+      _visiblePlantLimit = (_visiblePlantLimit + _plantsPerBatch).clamp(
+        0,
+        _filteredStations.length,
+      );
+      _isLoadingMorePlants = false;
+    });
   }
 
   Future<void> _loadInverters() async {
@@ -306,16 +378,50 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   List<Station> get _filteredStations {
-    switch (_statusFilter) {
-      case 1:
-        return _stations.where((s) => s.isOnline).toList();
-      case 2:
-        return _stations.where((s) => s.isAlarm).toList();
-      case 3:
-        return _stations.where((s) => !s.isOnline && !s.isAlarm).toList();
-      default:
-        return _stations;
+    final statusFiltered = switch (_statusFilter) {
+      1 => _stations.where((s) => s.isOnline).toList(),
+      2 => _stations.where((s) => s.isAlarm).toList(),
+      3 => _stations.where((s) => !s.isOnline && !s.isAlarm).toList(),
+      _ => _stations,
+    };
+
+    final query = _plantSearchQuery.trim().toLowerCase();
+    if (query.isEmpty) return statusFiltered;
+
+    return statusFiltered.where((station) {
+      final searchable = [
+        station.stationName,
+        station.addr ?? '',
+        station.id,
+        station.statusText,
+      ].join(' ').toLowerCase();
+      return searchable.contains(query);
+    }).toList();
+  }
+
+  void _togglePlantSearch() {
+    setState(() {
+      _isPlantSearchOpen = !_isPlantSearchOpen;
+      if (!_isPlantSearchOpen) {
+        _plantSearchController.clear();
+        _plantSearchQuery = '';
+        _visiblePlantLimit = _plantsPerBatch;
+      }
+    });
+
+    if (_isPlantSearchOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _plantSearchFocusNode.requestFocus();
+      });
     }
+  }
+
+  void _onPlantSearchChanged(String value) {
+    setState(() {
+      _plantSearchQuery = value;
+      _visiblePlantLimit = _plantsPerBatch;
+    });
   }
 
   int get _onlineCount => _stations.where((s) => s.isOnline).length;
@@ -325,6 +431,76 @@ class _DashboardScreenState extends State<DashboardScreen>
       _stations.fold(0, (sum, s) => sum + (s.dayEnergy ?? 0));
   double get _installedCapacityTotal =>
       _stations.fold(0, (sum, s) => sum + s.capacity);
+  double get _currentPowerTotal =>
+      _stations.fold(0, (sum, s) => sum + (s.power ?? 0));
+  double get _dailyChargeTotal =>
+      _batteries.fold(0, (sum, b) => sum + (b.batteryTodayChargeEnergy ?? 0));
+  double get _dailyDischargeTotal => _batteries.fold(
+    0,
+    (sum, b) => sum + (b.batteryTodayDischargeEnergy ?? 0),
+  );
+
+  _MetricDisplay _formatEnergy(num value, {String unit = 'kWh'}) {
+    return _formatMetricValue(
+      _toBaseEnergyKwh(value, unit),
+      units: const ['kWh', 'MWh', 'GWh'],
+    );
+  }
+
+  _MetricDisplay _formatPower(num value, {String unit = 'kW'}) {
+    return _formatMetricValue(
+      _toBasePowerKw(value, unit),
+      units: const ['kW', 'MW', 'GW'],
+    );
+  }
+
+  _MetricDisplay _formatCapacity(num value, {String unit = 'kWp'}) {
+    return _formatMetricValue(
+      _toBasePowerKw(value, unit),
+      units: const ['kWp', 'MWp', 'GWp'],
+    );
+  }
+
+  _MetricDisplay _formatMetricValue(
+    num value, {
+    List<String> units = const ['kWh', 'MWh', 'GWh'],
+  }) {
+    var scaled = value.toDouble();
+    var unitIndex = 0;
+    while (scaled.abs() >= 1000 && unitIndex < units.length - 1) {
+      scaled /= 1000;
+      unitIndex++;
+    }
+
+    final absValue = scaled.abs();
+    final decimals = absValue >= 100
+        ? 0
+        : absValue >= 10
+        ? 1
+        : 2;
+    final pattern = decimals == 0
+        ? '#,##0'
+        : '#,##0.${List.filled(decimals, '#').join()}';
+    return _MetricDisplay(
+      NumberFormat(pattern, 'id_ID').format(scaled),
+      units[unitIndex],
+    );
+  }
+
+  double _toBaseEnergyKwh(num value, String unit) {
+    final lower = unit.toLowerCase();
+    if (lower.contains('gwh')) return value * 1000000;
+    if (lower.contains('mwh')) return value * 1000;
+    return value.toDouble();
+  }
+
+  double _toBasePowerKw(num value, String unit) {
+    final lower = unit.toLowerCase();
+    if (lower.contains('gw')) return value * 1000000;
+    if (lower.contains('mw')) return value * 1000;
+    if (lower == 'w') return value / 1000;
+    return value.toDouble();
+  }
 
   String _stationKey(String? stationName) {
     if (stationName == null) return '';
@@ -484,15 +660,15 @@ class _DashboardScreenState extends State<DashboardScreen>
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
+          padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   SizedBox(
-                    width: 132,
-                    height: 40,
+                    width: 124,
+                    height: 34,
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Image.asset(
@@ -502,34 +678,45 @@ class _DashboardScreenState extends State<DashboardScreen>
                     ),
                   ),
                   const Spacer(),
-                  _headerBtn(Icons.refresh_rounded, () {
-                    _loadStations();
-                    _invertersLoaded = false;
-                    _batteriesLoaded = false;
-                    _collectorsLoaded = false;
-                    _onTabChanged();
-                  }),
+                  _headerBtn(
+                    _isPlantSearchOpen
+                        ? Icons.close_rounded
+                        : Icons.search_rounded,
+                    _togglePlantSearch,
+                  ),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
               const Text(
                 'Plants',
                 style: TextStyle(
-                  fontSize: 26,
+                  fontSize: 25,
                   fontWeight: FontWeight.w900,
                   color: _textOnDark,
                   height: 1.05,
-                  letterSpacing: -1,
+                  letterSpacing: 0,
                 ),
               ),
               const SizedBox(height: 6),
               Text(
-                '$_onlineCount plant online, ${_todayEnergyTotal.toStringAsFixed(1)} kWh generated today',
+                '$_onlineCount plant online, ${_formatEnergy(_todayEnergyTotal).text} generated today',
                 style: const TextStyle(
-                  fontSize: 13,
+                  fontSize: 12,
                   color: _mutedOnDark,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
+              ),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: _isPlantSearchOpen
+                    ? Padding(
+                        key: const ValueKey('plant-search'),
+                        padding: const EdgeInsets.only(top: 12),
+                        child: _buildPlantSearchField(),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('no-search')),
               ),
             ],
           ),
@@ -548,8 +735,72 @@ class _DashboardScreenState extends State<DashboardScreen>
           color: Colors.white,
           shape: BoxShape.circle,
           border: Border.all(color: _dashboardBorder),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 14,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Icon(icon, size: 20, color: AppColors.primaryDark),
+      ),
+    );
+  }
+
+  Widget _buildPlantSearchField() {
+    return Container(
+      height: 44,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _dashboardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: _plantSearchController,
+        focusNode: _plantSearchFocusNode,
+        onChanged: _onPlantSearchChanged,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            size: 19,
+            color: _mutedOnDark,
+          ),
+          suffixIcon: _plantSearchQuery.isEmpty
+              ? null
+              : IconButton(
+                  onPressed: () {
+                    _plantSearchController.clear();
+                    _onPlantSearchChanged('');
+                  },
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  color: _mutedOnDark,
+                ),
+          hintText: 'Search plant name, address, or ID',
+          hintStyle: const TextStyle(
+            fontSize: 13,
+            color: _mutedOnDark,
+            fontWeight: FontWeight.w500,
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 0,
+            vertical: 12,
+          ),
+        ),
+        style: const TextStyle(
+          fontSize: 13,
+          color: _textOnDark,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -558,13 +809,13 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Widget _buildTopTabs() {
     return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+      color: _dashboardBg,
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 10),
       child: Container(
-        height: 54,
+        height: 48,
         decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(18),
+          color: const Color(0xFFEFF4FA),
+          borderRadius: BorderRadius.circular(17),
           border: Border.all(color: _dashboardBorder),
         ),
         child: TabBar(
@@ -573,19 +824,19 @@ class _DashboardScreenState extends State<DashboardScreen>
           labelColor: AppColors.primaryDark,
           unselectedLabelColor: _mutedOnDark,
           labelStyle: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
           ),
           unselectedLabelStyle: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
           ),
           indicator: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: BorderRadius.circular(14),
           ),
           indicatorSize: TabBarIndicatorSize.tab,
-          padding: const EdgeInsets.all(6),
+          padding: const EdgeInsets.all(5),
           tabs: const [
             Tab(text: 'Plants'),
             Tab(text: 'Inverter'),
@@ -601,10 +852,11 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Widget _buildPlantsTab() {
     return RefreshIndicator(
-      onRefresh: _loadStations,
+      onRefresh: () => _loadStations(showLoading: false, forceRefresh: true),
       color: AppColors.primary,
       backgroundColor: _dashboardSurface,
       child: CustomScrollView(
+        controller: _plantsScrollController,
         physics: const AlwaysScrollableScrollPhysics(
           parent: BouncingScrollPhysics(),
         ),
@@ -613,6 +865,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           SliverToBoxAdapter(child: _buildStatusTabs()),
           SliverToBoxAdapter(child: _buildPlantFilterBar()),
           _buildPlantList(),
+          SliverToBoxAdapter(child: _buildLoadMoreFooter()),
           const SliverToBoxAdapter(child: SizedBox(height: 20)),
         ],
       ),
@@ -638,7 +891,10 @@ class _DashboardScreenState extends State<DashboardScreen>
     final sel = _statusFilter == idx;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _statusFilter = idx),
+        onTap: () => setState(() {
+          _statusFilter = idx;
+          _visiblePlantLimit = _plantsPerBatch;
+        }),
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 220),
@@ -678,63 +934,41 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildPlantFilterBar() {
+    final filteredCount = _filteredStations.length;
     return Container(
       color: _dashboardBg,
       padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        child: Row(
-          children: [
-            _filterChip('Overview', selected: true),
-            const SizedBox(width: 8),
-            _filterChip('Savings'),
-            const SizedBox(width: 8),
-            _filterChip('Consumption'),
-            const SizedBox(width: 8),
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppColors.primary.withValues(alpha: 0.20),
-                ),
-              ),
-              child: const Icon(
-                Icons.tune_rounded,
-                size: 18,
-                color: AppColors.primaryDark,
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'Plant List',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                color: _textOnDark,
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _filterChip(String label, {bool selected = false}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: selected
-            ? AppColors.primary.withValues(alpha: 0.12)
-            : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: selected
-              ? AppColors.primary.withValues(alpha: 0.35)
-              : _dashboardBorder,
-        ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: selected ? AppColors.primaryDark : _textOnDark,
-        ),
+          ),
+          Container(
+            height: 34,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _dashboardBorder),
+            ),
+            child: Text(
+              '$filteredCount total',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: _mutedOnDark,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -743,235 +977,321 @@ class _DashboardScreenState extends State<DashboardScreen>
     final dt = _lastPlantRefresh ?? DateTime.now();
     final ts =
         '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}  ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    final today = _formatEnergy(_todayEnergyTotal);
+    final charge = _formatEnergy(_dailyChargeTotal);
+    final discharge = _formatEnergy(_dailyDischargeTotal);
+    final power = _formatPower(_currentPowerTotal);
+    final capacity = _formatCapacity(_installedCapacityTotal);
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 4, 18, 12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              const Color(0xFFFFEDD5),
-              AppColors.primary.withValues(alpha: 0.18),
-              Colors.white,
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+      padding: const EdgeInsets.fromLTRB(18, 6, 18, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildEnergySummaryCard(
+            today: today,
+            charge: charge,
+            discharge: discharge,
+            lastSync: ts,
           ),
-          borderRadius: BorderRadius.circular(26),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.14),
-              blurRadius: 26,
-              offset: const Offset(0, 16),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Today Energy',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF7C2D12),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Today',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                      SizedBox(width: 4),
-                      Icon(Icons.keyboard_arrow_down_rounded, size: 16),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 260),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (child, animation) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0, 0.08),
-                      end: Offset.zero,
-                    ).animate(animation),
-                    child: child,
-                  ),
-                );
-              },
-              child: Text(
-                '${_todayEnergyTotal.toStringAsFixed(2)} kWh',
-                key: ValueKey(_todayEnergyTotal.toStringAsFixed(2)),
-                style: const TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF0F172A),
-                  letterSpacing: -1,
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Last sync $ts  |  ${_installedCapacityTotal.toStringAsFixed(1)} kWp installed',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF9A3412),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(child: _buildHeroBars()),
-                const SizedBox(width: 12),
-                Container(
-                  width: 92,
-                  height: 92,
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.36),
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.asset(
-                      'assets/images/inverter_product.png',
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+          const SizedBox(height: 10),
+          _buildPlantStatusCard(power: power, capacity: capacity),
+        ],
       ),
     );
   }
 
-  Widget _buildHeroBars() {
-    final source = _filteredStations.isNotEmpty ? _filteredStations : _stations;
-    final values = source
-        .take(6)
-        .map((station) => (station.dayEnergy ?? 0).clamp(0, double.infinity))
-        .toList();
-    if (values.isEmpty) {
-      values.addAll([2.5, 4.2, 6.1, 5.0, 7.4, 6.6]);
-    }
-    final maxValue = values.reduce((a, b) => a > b ? a : b);
-
-    return SizedBox(
-      height: 112,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          const topSlot = 26.0; // reserved for the selected tooltip
-          const bottomGap = 6.0;
-          const bottomLabel = 12.0;
-          final barMax =
-              (constraints.maxHeight - topSlot - bottomGap - bottomLabel).clamp(
-                26.0,
-                96.0,
-              );
-          const barMin = 18.0;
-          final barRange = (barMax - barMin).clamp(0.0, 96.0);
-
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: List.generate(values.length, (index) {
-              final value = values[index];
-              final selected = index == values.length - 2;
-              final h = maxValue <= 0
-                  ? barMin
-                  : barMin + (value / maxValue) * barRange;
-
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      SizedBox(
-                        height: topSlot,
-                        child: Align(
-                          alignment: Alignment.bottomCenter,
-                          child: selected
-                              ? Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Text(
-                                    '${value.toStringAsFixed(0)} kWh',
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      ),
-                      Container(
-                        height: h,
+  Widget _buildEnergySummaryCard({
+    required _MetricDisplay today,
+    required _MetricDisplay charge,
+    required _MetricDisplay discharge,
+    required String lastSync,
+  }) {
+    return _summaryCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 260),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: _bigMetric(
+                    today,
+                    'Daily Yield',
+                    key: ValueKey(today.text),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 86,
+                height: 70,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Positioned.fill(
+                      child: DecoratedBox(
                         decoration: BoxDecoration(
-                          color: selected
-                              ? AppColors.primaryDark
-                              : AppColors.primary.withValues(alpha: 0.26),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFFF7ED), Color(0xFFFFFBF7)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
                           borderRadius: BorderRadius.circular(18),
                         ),
                       ),
-                      const SizedBox(height: bottomGap),
-                      SizedBox(
-                        height: bottomLabel,
-                        child: Center(
-                          child: Text(
-                            '${index + 1}'.padLeft(2, '0'),
-                            style: const TextStyle(
-                              fontSize: 9,
-                              color: Color(0xFF9A3412),
-                            ),
+                    ),
+                    Image.asset(
+                      'assets/images/inverter_product.png',
+                      width: 66,
+                      height: 58,
+                      fit: BoxFit.contain,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Last sync $lastSync',
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: _mutedOnDark,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: _dashboardBorder),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _smallMetric(charge, 'Daily Charge')),
+              const SizedBox(width: 14),
+              Expanded(child: _smallMetric(discharge, 'Daily Discharge')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlantStatusCard({
+    required _MetricDisplay power,
+    required _MetricDisplay capacity,
+  }) {
+    final total = _stations.length;
+    final onlineRatio = total == 0 ? 0.0 : _onlineCount / total;
+
+    return _summaryCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Plant Status',
+            style: TextStyle(
+              fontSize: 13,
+              color: _textOnDark,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              SizedBox(
+                width: 108,
+                height: 108,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 104,
+                      height: 104,
+                      child: CircularProgressIndicator(
+                        value: onlineRatio,
+                        strokeWidth: 12,
+                        strokeCap: StrokeCap.round,
+                        backgroundColor: const Color(0xFFE5E7EB),
+                        color: AppColors.online,
+                      ),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '$total',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: _textOnDark,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                        const Text(
+                          'All',
+                          style: TextStyle(fontSize: 11, color: _mutedOnDark),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              );
-            }),
-          );
-        },
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  children: [
+                    _statusLine(AppColors.online, _onlineCount, 'Online'),
+                    const SizedBox(height: 12),
+                    _statusLine(AppColors.alarm, _alarmCount, 'Alarm'),
+                    const SizedBox(height: 12),
+                    _statusLine(AppColors.offline, _offlineCount, 'Offline'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: _dashboardBorder),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _smallMetric(power, 'Power')),
+              const SizedBox(width: 14),
+              Expanded(child: _smallMetric(capacity, 'Capacity')),
+            ],
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _summaryCard({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _dashboardSurface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _dashboardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.045),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _bigMetric(_MetricDisplay metric, String label, {Key? key}) {
+    return Column(
+      key: key,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _metricRichText(metric, valueSize: 27, unitSize: 14),
+        const SizedBox(height: 3),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: _mutedOnDark,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _smallMetric(_MetricDisplay metric, String label) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _metricRichText(metric, valueSize: 15, unitSize: 10),
+        const SizedBox(height: 3),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            color: _mutedOnDark,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _metricRichText(
+    _MetricDisplay metric, {
+    required double valueSize,
+    required double unitSize,
+  }) {
+    return RichText(
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      text: TextSpan(
+        children: [
+          TextSpan(
+            text: metric.value,
+            style: TextStyle(
+              fontSize: valueSize,
+              fontWeight: FontWeight.w900,
+              color: _textOnDark,
+              height: 1.0,
+            ),
+          ),
+          TextSpan(
+            text: ' ${metric.unit}',
+            style: TextStyle(
+              fontSize: unitSize,
+              fontWeight: FontWeight.w800,
+              color: _textOnDark,
+              height: 1.0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statusLine(Color color, int count, String label) {
+    return Row(
+      children: [
+        Container(
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.14),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(Icons.circle, size: 6, color: color),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: _mutedOnDark,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Text(
+          '$count',
+          style: const TextStyle(
+            fontSize: 13,
+            color: _textOnDark,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(width: 2),
+        const Icon(Icons.chevron_right_rounded, size: 16, color: _mutedOnDark),
+      ],
     );
   }
 
@@ -1000,14 +1320,21 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
     final filtered = _filteredStations;
     if (filtered.isEmpty) {
-      return SliverFillRemaining(child: _buildEmpty('No plants found'));
+      return SliverFillRemaining(
+        child: _buildEmpty(
+          _plantSearchQuery.trim().isEmpty
+              ? 'No plants found'
+              : 'No plants match your search',
+        ),
+      );
     }
+    final visible = filtered.take(_visiblePlantLimit).toList();
 
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate((ctx, i) {
-          final station = filtered[i];
+          final station = visible[i];
           final card = _buildModernPlantCard(
             station,
             onTap: () => Navigator.of(ctx).push(
@@ -1021,7 +1348,48 @@ class _DashboardScreenState extends State<DashboardScreen>
             enabled: !_plantsEnterAnimatedOnce,
             child: card,
           );
-        }, childCount: filtered.length),
+        }, childCount: visible.length),
+      ),
+    );
+  }
+
+  Widget _buildLoadMoreFooter() {
+    if (_isLoadingPlants || _errorMessage != null) {
+      return const SizedBox.shrink();
+    }
+
+    final filtered = _filteredStations;
+    if (_visiblePlantLimit >= filtered.length && !_isLoadingMorePlants) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 180),
+        opacity: _isLoadingMorePlants ? 1 : 0,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.2,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'Loading...',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: _textOnDark,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1131,22 +1499,28 @@ class _DashboardScreenState extends State<DashboardScreen>
                         children: [
                           Expanded(
                             child: _plantMetric(
-                              value:
-                                  '${station.dayEnergy?.toStringAsFixed(1) ?? "0"}kWh',
+                              value: _formatEnergy(
+                                station.dayEnergy ?? 0,
+                                unit: station.dayEnergyStr ?? 'kWh',
+                              ).text,
                               label: 'Daily Yield',
                             ),
                           ),
                           Expanded(
                             child: _plantMetric(
-                              value:
-                                  '${station.power?.toStringAsFixed(1) ?? "0"}kW',
+                              value: _formatPower(
+                                station.power ?? 0,
+                                unit: station.powerStr ?? 'kW',
+                              ).text,
                               label: 'Power',
                             ),
                           ),
                           Expanded(
                             child: _plantMetric(
-                              value:
-                                  '${station.capacity.toStringAsFixed(1)}kWp',
+                              value: _formatCapacity(
+                                station.capacity,
+                                unit: station.capacityStr ?? 'kWp',
+                              ).text,
                               label: 'Capacity',
                             ),
                           ),
@@ -1400,8 +1774,11 @@ class _DashboardScreenState extends State<DashboardScreen>
             title: 'Inverter',
             detail: inverterDetail,
             extra: inverterList.isNotEmpty
-                ? '${inverterLivePower.toStringAsFixed(1)} kW live'
-                : '${station.power?.toStringAsFixed(1) ?? "0"} kW',
+                ? '${_formatPower(inverterLivePower).text} live'
+                : _formatPower(
+                    station.power ?? 0,
+                    unit: station.powerStr ?? 'kW',
+                  ).text,
           ),
         ),
         const SizedBox(width: 8),
@@ -1528,9 +1905,24 @@ class _DashboardScreenState extends State<DashboardScreen>
         MaterialPageRoute(builder: (_) => InverterDataScreen(inverter: inv)),
       ),
       metrics: [
-        _DeviceMetricData(value: inv.pacDisplay, label: 'Power'),
-        _DeviceMetricData(value: inv.eTodayDisplay, label: 'Today'),
-        _DeviceMetricData(value: inv.eTotalDisplay, label: 'Total'),
+        _DeviceMetricData(
+          value: _formatPower(inv.pac ?? 0, unit: inv.pacStr ?? 'kW').text,
+          label: 'Power',
+        ),
+        _DeviceMetricData(
+          value: _formatEnergy(
+            inv.eToday ?? 0,
+            unit: inv.eTodayStr ?? 'kWh',
+          ).text,
+          label: 'Today',
+        ),
+        _DeviceMetricData(
+          value: _formatEnergy(
+            inv.eTotal ?? 0,
+            unit: inv.eTotalStr ?? 'kWh',
+          ).text,
+          label: 'Total',
+        ),
       ],
       timeText: _formatDeviceTime(inv.dataTimestamp, inv.dataTimestampStr),
     );
@@ -1579,14 +1971,18 @@ class _DashboardScreenState extends State<DashboardScreen>
       metrics: [
         _DeviceMetricData(value: bat.socDisplay, label: 'SOC'),
         _DeviceMetricData(
-          value:
-              '${bat.batteryPower?.toStringAsFixed(1) ?? "0"} ${bat.batteryPowerStr ?? "W"}',
-          label: 'Power',
+          value: _formatEnergy(
+            bat.batteryTodayChargeEnergy ?? 0,
+            unit: bat.batteryTodayChargeEnergyStr ?? 'kWh',
+          ).text,
+          label: 'Charge',
         ),
         _DeviceMetricData(
-          value:
-              '${bat.batteryTodayChargeEnergy?.toStringAsFixed(1) ?? "0"} ${bat.batteryTodayChargeEnergyStr ?? "kWh"}',
-          label: 'Charge',
+          value: _formatEnergy(
+            bat.batteryTodayDischargeEnergy ?? 0,
+            unit: bat.batteryTodayDischargeEnergyStr ?? 'kWh',
+          ).text,
+          label: 'Discharge',
         ),
       ],
       timeText: _formatDeviceTime(bat.dataTimestamp, bat.dataTimestampStr),
@@ -1953,6 +2349,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   void dispose() {
     _plantsRealtimeTimer?.cancel();
+    _plantsScrollController.dispose();
+    _plantSearchController.dispose();
+    _plantSearchFocusNode.dispose();
     _tabController.dispose();
     _repository.dispose();
     super.dispose();

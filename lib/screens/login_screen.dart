@@ -54,24 +54,33 @@ class _LoginScreenState extends State<LoginScreen>
       _errorMessage = null;
     });
 
-    await Future.delayed(const Duration(milliseconds: 600));
-
-    final ok = AuthService.login(_usernameCtrl.text, _passwordCtrl.text);
-    if (!mounted) return;
-
-    if (ok) {
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (_, _, _) => const PlatformPickerScreen(),
-          transitionsBuilder: (_, anim, _, child) =>
-              FadeTransition(opacity: anim, child: child),
-          transitionDuration: const Duration(milliseconds: 400),
-        ),
+    try {
+      final ok = await AuthService.login(
+        _usernameCtrl.text,
+        _passwordCtrl.text,
       );
-    } else {
+      if (!mounted) return;
+
+      if (ok) {
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            pageBuilder: (_, _, _) => const PlatformPickerScreen(),
+            transitionsBuilder: (_, anim, _, child) =>
+                FadeTransition(opacity: anim, child: child),
+            transitionDuration: const Duration(milliseconds: 400),
+          ),
+        );
+      } else {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Username atau password salah.';
+        });
+      }
+    } on AuthException catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Username atau password salah.';
+        _errorMessage = e.message;
       });
     }
   }

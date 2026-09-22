@@ -7,7 +7,7 @@ if (-not (Test-Path $adb)) {
 
 Write-Host "Setting adb reverse tcp:8080 -> tcp:80..."
 & $adb reverse tcp:8080 tcp:80 | Out-Host
-& $adb reverse --list | Out-Host
+& $adb reverse --list | Out-Hos t
 
 $baseUrl = "http://localhost:8080/jarwinn-monitoring/api"
 $checks = @(
@@ -24,4 +24,4 @@ foreach ($url in $checks) {
     Write-Host ""
 }
 
-Write-Host "Mobile debug tunnel is ready. Run the Flutter app again after changing app.env."
+Write-Host "Mobile debug tunnel is ready. Run Flutter with --dart-define=MONITORING_API_BASE_URL=http://localhost:8080/jarwinn-monitoring/api."

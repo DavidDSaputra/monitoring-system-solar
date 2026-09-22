@@ -35,6 +35,8 @@ class StationDetail {
   final double? familyLoadPower;
   final String? familyLoadPowerStr;
   final String? addr;
+  final double? latitude;
+  final double? longitude;
 
   // Weather fields
   final String? condTxtD;
@@ -103,6 +105,8 @@ class StationDetail {
     this.familyLoadPower,
     this.familyLoadPowerStr,
     this.addr,
+    this.latitude,
+    this.longitude,
     this.condTxtD,
     this.condTxtN,
     this.tmpMax,
@@ -227,7 +231,31 @@ class StationDetail {
       psumStr: json['psumStr']?.toString(),
       familyLoadPower: _parseDouble(json['familyLoadPower']),
       familyLoadPowerStr: json['familyLoadPowerStr']?.toString(),
-      addr: json['addr']?.toString(),
+      addr: _pickText(json, const [
+        'addr',
+        'addrOrigin',
+        'address',
+        'plantAddress',
+      ]),
+      latitude: _parseDouble(
+        _pick(json, const [
+          'latitude',
+          'lat',
+          'mapLat',
+          'stationLat',
+          'positionLat',
+        ]),
+      ),
+      longitude: _parseDouble(
+        _pick(json, const [
+          'longitude',
+          'lng',
+          'lon',
+          'mapLng',
+          'stationLng',
+          'positionLng',
+        ]),
+      ),
       condTxtD: json['condTxtD']?.toString(),
       condTxtN: json['condTxtN']?.toString(),
       tmpMax: json['tmpMax']?.toString(),
@@ -259,5 +287,18 @@ class StationDetail {
     if (value is int) return value.toDouble();
     if (value is String) return double.tryParse(value);
     return null;
+  }
+
+  static dynamic _pick(Map<String, dynamic> json, List<String> keys) {
+    for (final key in keys) {
+      if (json.containsKey(key) && json[key] != null) return json[key];
+    }
+    return null;
+  }
+
+  static String? _pickText(Map<String, dynamic> json, List<String> keys) {
+    final value = _pick(json, keys);
+    final text = value?.toString().trim();
+    return text == null || text.isEmpty ? null : text;
   }
 }

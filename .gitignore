@@ -1,7 +1,6 @@
 # Environment / Secrets
 .env
 *.env
-!assets/config/app.env
 
 # Miscellaneous
 *.class

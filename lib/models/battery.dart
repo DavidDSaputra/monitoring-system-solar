@@ -140,6 +140,8 @@ class Battery {
           inverter.batteryPower ??
           inverter.pac, // Fallback to inverter power if missing
       batteryCapacitySoc: inverter.batteryCapacitySoc,
+      batteryTodayChargeEnergy: inverter.batteryTodayChargeEnergy,
+      batteryTodayDischargeEnergy: inverter.batteryTodayDischargeEnergy,
       batteryTotalChargeEnergy: inverter.batteryTotalChargeEnergy,
       batteryTotalDischargeEnergy: inverter.batteryTotalDischargeEnergy,
       dataTimestamp: inverter.dataTimestamp,

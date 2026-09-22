@@ -6,11 +6,12 @@ require_once dirname(__DIR__) . '/adapters/growatt/growattAdapter.php';
 
 $plantCode = urldecode(trim((string) ($_GET['plantCode'] ?? '')));
 $date = trim((string) ($_GET['date'] ?? gmdate('Y-m-d')));
+$forceRefresh = filter_var($_GET['refresh'] ?? $_GET['forceRefresh'] ?? false, FILTER_VALIDATE_BOOLEAN);
 if ($plantCode === '') {
     api_fail(400, 'Growatt plantCode is required');
 }
 
-$result = growatt_get_plant_power($plantCode, $date);
+$result = growatt_get_plant_power($plantCode, $date, $forceRefresh);
 api_json([
     'success' => true,
     'source' => 'growatt',

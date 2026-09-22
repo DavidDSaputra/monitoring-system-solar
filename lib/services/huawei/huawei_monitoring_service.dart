@@ -21,33 +21,63 @@ class HuaweiMonitoringService {
 
   Future<List<HuaweiPlant>> getPlants({
     MonitoringSourceFilter source = MonitoringSourceFilter.huawei,
+    bool forceRefresh = false,
   }) async {
     final data = source == MonitoringSourceFilter.huawei
-        ? await _get('huawei/plants.php')
-        : await _get('monitoring/plants.php', {'source': source.name});
+        ? await _get(
+            'huawei/plants.php',
+            forceRefresh ? {'refresh': 'true'} : null,
+          )
+        : await _get('monitoring/plants.php', {
+            'source': source.name,
+            if (forceRefresh) 'refresh': 'true',
+          });
     return _list(data).map(HuaweiPlant.fromJson).toList();
   }
 
-  Future<HuaweiPlant> getRealtimePlant(String plantCode) async {
+  Future<HuaweiPlant> getRealtimePlant(
+    String plantCode, {
+    bool forceRefresh = false,
+  }) async {
     final data = await _get('huawei/station_realtime.php', {
       'plantCode': plantCode,
+      if (forceRefresh) 'refresh': 'true',
     });
     final map = _map(data);
     return HuaweiPlant.fromJson(map);
   }
 
-  Future<List<HuaweiDevice>> getDevices(String plantCode) async {
-    final data = await _get('huawei/devices.php', {'plantCode': plantCode});
+  Future<List<HuaweiDevice>> getDevices(
+    String plantCode, {
+    bool forceRefresh = false,
+  }) async {
+    final data = await _get('huawei/devices.php', {
+      'plantCode': plantCode,
+      if (forceRefresh) 'refresh': 'true',
+    });
     return _list(data).map(HuaweiDevice.fromJson).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getDeviceRealtime(
+    String deviceId, {
+    bool forceRefresh = false,
+  }) async {
+    final data = await _get('huawei/device_realtime.php', {
+      'deviceId': deviceId,
+      if (forceRefresh) 'refresh': 'true',
+    });
+    return _list(data);
   }
 
   Future<List<HuaweiAlarm>> getAlarms({
     String? plantCode,
     bool historical = false,
+    bool forceRefresh = false,
   }) async {
     final query = <String, String>{
       if (plantCode?.isNotEmpty == true) 'plantCode': plantCode!,
       if (historical) 'historical': 'true',
+      if (forceRefresh) 'refresh': 'true',
     };
     final data = await _get('huawei/alarms.php', query);
     return _list(data).map(HuaweiAlarm.fromJson).toList();

@@ -9,6 +9,7 @@ import '../models/growatt/growatt_plant.dart';
 import '../models/growatt/growatt_power_point.dart';
 import '../services/growatt/growatt_monitoring_service.dart';
 import 'growatt_plant_detail_screen.dart';
+import 'provider_record_detail_screen.dart';
 
 const _growattNavy = Color(0xFF2E2B69);
 const _growattBlue = Color(0xFF265D96);
@@ -38,6 +39,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
   bool _isRefreshing = false;
   bool _isDetailLoading = false;
   String? _errorMessage;
+  int _dataTabIndex = 0;
 
   @override
   void initState() {
@@ -53,6 +55,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
   Future<void> _loadPlants({
     bool showLoading = true,
     bool silentError = false,
+    bool forceRefresh = false,
   }) async {
     if (showLoading && mounted) {
       setState(() {
@@ -63,7 +66,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
 
     _isRefreshing = true;
     try {
-      final plants = await _service.getPlants();
+      final plants = await _service.getPlants(forceRefresh: forceRefresh);
       if (!mounted) return;
       final selectedCode = _selectedPlant?.plantCode;
       final selected = plants.firstWhere(
@@ -100,13 +103,18 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
       });
 
       if (selected.plantCode.isNotEmpty) {
-        await _loadPlantDetail(selected, showLoading: showLoading);
+        await _loadPlantDetail(
+          selected,
+          showLoading: showLoading,
+          forceRefresh: forceRefresh,
+        );
       }
     } catch (_) {
       if (!mounted || silentError) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Growatt data unavailable';
+        _errorMessage =
+            'Menampilkan data terakhir Growatt. Tarik untuk refresh.';
       });
     } finally {
       _isRefreshing = false;
@@ -116,15 +124,20 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
   Future<void> _loadPlantDetail(
     GrowattPlant plant, {
     bool showLoading = true,
+    bool forceRefresh = false,
   }) async {
     if (showLoading && mounted) {
       setState(() => _isDetailLoading = true);
     }
 
     final results = await Future.wait([
-      _guard(_service.getRealtimePlant(plant.plantCode)),
-      _guard(_service.getDevices(plant.plantCode)),
-      _guard(_service.getPowerPoints(plant.plantCode)),
+      _guard(
+        _service.getRealtimePlant(plant.plantCode, forceRefresh: forceRefresh),
+      ),
+      _guard(_service.getDevices(plant.plantCode, forceRefresh: forceRefresh)),
+      _guard(
+        _service.getPowerPoints(plant.plantCode, forceRefresh: forceRefresh),
+      ),
     ]);
     if (!mounted) return;
 
@@ -135,7 +148,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
     if (realtime == null && devices == null && points == null) {
       setState(() {
         _isDetailLoading = false;
-        _errorMessage = 'Growatt detail unavailable';
+        _errorMessage = 'Detail plant belum tersinkron. Tarik untuk refresh.';
       });
       return;
     }
@@ -164,7 +177,8 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
       if (!mounted) return;
       setState(() {
         _isDetailLoading = false;
-        _errorMessage = 'Growatt data unavailable';
+        _errorMessage =
+            'Menampilkan data terakhir Growatt. Tarik untuk refresh.';
       });
     }
   }
@@ -227,7 +241,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
         bottom: false,
         child: RefreshIndicator(
           color: _growattCyan,
-          onRefresh: () => _loadPlants(showLoading: false),
+          onRefresh: () => _loadPlants(showLoading: false, forceRefresh: true),
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
@@ -239,7 +253,9 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
                     if (_errorMessage != null) _buildErrorBanner(),
                     _buildPlantSwitcher(),
                     const SizedBox(height: 12),
-                    _buildDeviceSection(),
+                    _buildDataTabs(),
+                    const SizedBox(height: 12),
+                    _buildDataBody(),
                   ],
                 ),
               ),
@@ -248,6 +264,70 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildDataTabs() {
+    final tabs = [
+      ('Plants', Icons.home_work_rounded),
+      ('Inverter', Icons.memory_rounded),
+      ('Power', Icons.show_chart_rounded),
+      ('Alarm', Icons.notifications_active_rounded),
+    ];
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: tabs.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (_, index) {
+          final active = _dataTabIndex == index;
+          return InkWell(
+            borderRadius: BorderRadius.circular(999),
+            onTap: () => setState(() => _dataTabIndex = index),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: active ? _growattBlue : Colors.white,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: active ? _growattBlue : const Color(0xFFD8DEE9),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    tabs[index].$2,
+                    size: 16,
+                    color: active ? Colors.white : AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 7),
+                  Text(
+                    tabs[index].$1,
+                    style: TextStyle(
+                      color: active ? Colors.white : AppColors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDataBody() {
+    return switch (_dataTabIndex) {
+      0 => _buildPlantListSection(),
+      1 => _buildDeviceSection(),
+      2 => _buildPowerDataSection(),
+      _ => _buildGrowattAlarmSection(),
+    };
   }
 
   Widget _buildHero(BuildContext context) {
@@ -1055,6 +1135,286 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
     );
   }
 
+  Widget _buildPlantListSection() {
+    return _softReveal(
+      index: 1,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: const Color(0xFFDDE3EE)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  'Growatt Plants',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${_plants.length} plants',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            if (_plants.isEmpty)
+              _emptyPanel('Plant Growatt belum terdeteksi')
+            else
+              for (final plant in _plants) _buildPlantListCard(plant),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlantListCard(GrowattPlant plant) {
+    final color = _statusColor(plant.status);
+    return InkWell(
+      onTap: () {
+        _selectPlant(plant);
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => GrowattPlantDetailScreen(plant: plant),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.home_work_rounded, color: color, size: 19),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    plant.plantName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    plant.address.isEmpty ? plant.plantCode : plant.address,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            _plantMiniMetric(
+              '${plant.currentPower.toStringAsFixed(2)} kW',
+              'Power',
+            ),
+            const SizedBox(width: 10),
+            _plantMiniMetric(
+              '${plant.dailyEnergy.toStringAsFixed(1)} kWh',
+              'Today',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _plantMiniMetric(String value, String label) {
+    return SizedBox(
+      width: 70,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          Text(
+            label,
+            style: const TextStyle(color: AppColors.textTertiary, fontSize: 10),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPowerDataSection() {
+    return _softReveal(
+      index: 1,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: const Color(0xFFDDE3EE)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  'Power Curve',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${_powerPoints.length} points',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _buildChartPanel(height: 260),
+            const SizedBox(height: 12),
+            if (_powerPoints.isEmpty)
+              _emptyPanel('Power curve belum tersinkron')
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final point in _powerPoints.take(24))
+                    Container(
+                      width: 118,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _shortTime(point.time),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${point.power.toStringAsFixed(2)} W',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGrowattAlarmSection() {
+    return _softReveal(
+      index: 1,
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: const Color(0xFFDDE3EE)),
+        ),
+        child: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Growatt Alarm',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            SizedBox(height: 10),
+            Text(
+              'Endpoint alarm belum tersedia dari integrasi Growatt saat ini. Data yang bisa ditarik sekarang adalah plant, realtime KPI, device/inverter, dan power curve.',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _emptyPanel(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Text(
+        message,
+        style: const TextStyle(color: AppColors.textSecondary),
+      ),
+    );
+  }
+
   Widget _buildDeviceSection() {
     return _softReveal(
       index: 1,
@@ -1099,7 +1459,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
                 child: const Text(
-                  'No Growatt devices found',
+                  'Device Growatt belum terdeteksi',
                   style: TextStyle(color: AppColors.textSecondary),
                 ),
               )
@@ -1114,13 +1474,36 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
   Widget _buildDeviceCard(GrowattDevice device) {
     final isWide = MediaQuery.sizeOf(context).width >= 820;
     return InkWell(
-      onTap: _selectedPlant == null
-          ? null
-          : () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => GrowattPlantDetailScreen(plant: _plant),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ProviderRecordDetailScreen(
+            title: device.name,
+            subtitle: device.sn.isEmpty ? 'Growatt device' : device.sn,
+            accentColor: _growattBlue,
+            raw: device.raw,
+            fields: [
+              ProviderRecordField('Plant', _plant.plantName),
+              ProviderRecordField('Device ID', device.id),
+              ProviderRecordField('Serial Number', device.sn),
+              ProviderRecordField('Type', device.type),
+              ProviderRecordField('Status', device.status),
+              ProviderRecordField(
+                'Current Power',
+                '${device.currentPower.toStringAsFixed(2)} kW',
               ),
-            ),
+              ProviderRecordField(
+                'Today Energy',
+                '${device.dailyEnergy.toStringAsFixed(1)} kWh',
+              ),
+              ProviderRecordField(
+                'Total Energy',
+                '${device.totalEnergy.toStringAsFixed(1)} kWh',
+              ),
+              ProviderRecordField('Updated', device.updatedAt ?? '-'),
+            ],
+          ),
+        ),
+      ),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(16),
@@ -1289,7 +1672,8 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              _errorMessage ?? 'Growatt data unavailable',
+              _errorMessage ??
+                  'Menampilkan data terakhir Growatt. Tarik untuk refresh.',
               style: const TextStyle(
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w700,
@@ -1350,6 +1734,12 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
     final raw = _powerPoints[index].time;
     final date = DateTime.tryParse(raw);
     if (date == null) return '';
+    return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _shortTime(String raw) {
+    final date = DateTime.tryParse(raw);
+    if (date == null) return raw;
     return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 

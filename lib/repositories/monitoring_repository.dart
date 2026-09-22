@@ -4,6 +4,7 @@ import '../models/collector.dart';
 import '../models/energy_data.dart';
 import '../models/inverter.dart';
 import '../models/monitoring_overview.dart';
+import '../models/paged_station_result.dart';
 import '../models/station.dart';
 import '../models/station_detail.dart';
 import '../providers/default_monitoring_provider.dart';
@@ -30,6 +31,40 @@ class MonitoringRepository {
       'plants',
       const Duration(seconds: 20),
       () => _provider.getPlants(forceRefresh: forceRefresh),
+      forceRefresh: forceRefresh,
+    );
+  }
+
+  Future<PagedStationResult> getPlantsPage({
+    required int pageNo,
+    required int pageSize,
+    bool forceRefresh = false,
+  }) {
+    return _cached(
+      'plants-page:$pageNo:$pageSize',
+      const Duration(seconds: 20),
+      () async {
+        if (_provider is PagedMonitoringProvider) {
+          final pagedProvider = _provider as PagedMonitoringProvider;
+          return pagedProvider.getPlantsPage(
+            pageNo: pageNo,
+            pageSize: pageSize,
+            forceRefresh: forceRefresh,
+          );
+        }
+
+        final all = await _provider.getPlants(forceRefresh: forceRefresh);
+        final start = (pageNo - 1) * pageSize;
+        final page = start >= all.length
+            ? <Station>[]
+            : all.skip(start).take(pageSize).toList();
+        return PagedStationResult(
+          records: page,
+          total: all.length,
+          pageNo: pageNo,
+          pageSize: pageSize,
+        );
+      },
       forceRefresh: forceRefresh,
     );
   }

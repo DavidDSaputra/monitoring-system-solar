@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../config/app_constants.dart';
 import '../config/app_theme.dart';
+import '../config/api_base_urls.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
 import 'platform_picker_screen.dart';
@@ -166,7 +166,7 @@ class ProfileScreen extends StatelessWidget {
         _heroDivider(),
         _heroStat('Version', AppConstants.appVersion),
         _heroDivider(),
-        _heroStat('Protocol', 'HMAC-SHA1'),
+        _heroStat('Data', 'Backend API'),
       ],
     );
   }
@@ -227,9 +227,9 @@ class ProfileScreen extends StatelessWidget {
             icon: Icons.cloud_done_rounded,
             iconColor: AppColors.online,
             iconBg: const Color(0xFFD1FAE5),
-            title: 'Base URL',
+            title: 'Backend URL',
             trailing: Text(
-              AppConstants.baseUrl,
+              resolveMonitoringApiBaseUrls().first,
               style: const TextStyle(
                 fontSize: 12,
                 color: AppColors.textSecondary,
@@ -238,41 +238,23 @@ class ProfileScreen extends StatelessWidget {
           ),
           _divider(),
           _listRow(
-            icon: Icons.vpn_key_rounded,
+            icon: Icons.security_rounded,
             iconColor: AppColors.primary,
             iconBg: const Color(0xFFFFF7ED),
-            title: 'API Key ID',
-            trailing: GestureDetector(
-              onTap: () => _copyToClipboard(context, 'API Key ID copied'),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    '••••••••••••',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textTertiary,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(
-                    Icons.copy_rounded,
-                    size: 14,
-                    color: AppColors.textTertiary,
-                  ),
-                ],
-              ),
+            title: 'Credential Storage',
+            trailing: const Text(
+              'Server only',
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
           ),
           _divider(),
           _listRow(
-            icon: Icons.shield_rounded,
+            icon: Icons.sync_alt_rounded,
             iconColor: const Color(0xFF8B5CF6),
             iconBg: const Color(0xFFEDE9FE),
-            title: 'Auth Method',
+            title: 'Data Flow',
             trailing: const Text(
-              'HMAC-SHA1',
+              'Frontend -> Backend',
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
           ),
@@ -281,13 +263,10 @@ class ProfileScreen extends StatelessWidget {
             icon: Icons.speed_rounded,
             iconColor: AppColors.warning,
             iconBg: const Color(0xFFFEF3C7),
-            title: 'Rate Limit',
-            trailing: Text(
-              '${AppConstants.maxRequestsPerWindow} req / 5s',
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.textSecondary,
-              ),
+            title: 'Vendor API',
+            trailing: const Text(
+              'Handled by VPS',
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
           ),
         ],
@@ -528,18 +507,6 @@ class ProfileScreen extends StatelessWidget {
       thickness: 1,
       color: AppColors.surfaceBorder,
       indent: 60,
-    );
-  }
-
-  void _copyToClipboard(BuildContext context, String message) {
-    Clipboard.setData(const ClipboardData(text: '••••••••••••'));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
     );
   }
 }

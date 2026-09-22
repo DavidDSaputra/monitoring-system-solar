@@ -1,18 +1,20 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'app_constants.dart';
 
 String? _lastHealthyMonitoringBaseUrl;
 
 List<String> resolveMonitoringApiBaseUrls({String? overrideBaseUrl}) {
-  final configured = overrideBaseUrl ?? dotenv.env['MONITORING_API_BASE_URLS'];
-  final rawUrls = configured?.trim().isNotEmpty == true
-      ? configured!.split(',')
-      : [
-          dotenv.env['MONITORING_API_BASE_URL'] ??
-              AppConstants.defaultMonitoringApiBaseUrl,
-        ];
+  const configuredBaseUrls = String.fromEnvironment('MONITORING_API_BASE_URLS');
+  const configuredBaseUrl = String.fromEnvironment(
+    'MONITORING_API_BASE_URL',
+    defaultValue: AppConstants.defaultMonitoringApiBaseUrl,
+  );
+
+  final configured = overrideBaseUrl ?? configuredBaseUrls;
+  final rawUrls = configured.trim().isNotEmpty
+      ? configured.split(',')
+      : [configuredBaseUrl];
 
   final urls = rawUrls
       .map((url) => url.trim().replaceFirst(RegExp(r'/+$'), ''))
@@ -20,8 +22,9 @@ List<String> resolveMonitoringApiBaseUrls({String? overrideBaseUrl}) {
       .toList();
 
   if (urls.isEmpty) return [AppConstants.defaultMonitoringApiBaseUrl];
-  final mobileLocalFirst =
-      dotenv.env['MONITORING_API_MOBILE_LOCAL_FIRST']?.toLowerCase() == 'true';
+  const mobileLocalFirst = bool.fromEnvironment(
+    'MONITORING_API_MOBILE_LOCAL_FIRST',
+  );
 
   final local = <String>[];
   final nonLocal = <String>[];
@@ -62,7 +65,7 @@ void rememberMonitoringBaseUrl(String url) {
 
 Duration monitoringApiTimeoutFor(
   String baseUrl, {
-  Duration fallback = const Duration(seconds: 5),
+  Duration fallback = const Duration(seconds: 8),
 }) {
   if (_isLocalApiUrl(baseUrl)) return const Duration(seconds: 2);
   return fallback;

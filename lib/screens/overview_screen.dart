@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../config/app_theme.dart';
 import '../models/battery.dart';
@@ -9,6 +10,15 @@ import '../repositories/monitoring_repository.dart';
 import '../widgets/shimmer_loading.dart';
 import 'overview_detail_screen.dart';
 import 'plant_detail_screen.dart';
+
+class _MetricDisplay {
+  final String value;
+  final String unit;
+
+  const _MetricDisplay(this.value, this.unit);
+
+  String get text => '$value $unit';
+}
 
 class OverviewScreen extends StatefulWidget {
   const OverviewScreen({super.key});
@@ -97,6 +107,66 @@ class _OverviewScreenState extends State<OverviewScreen>
     if (values.isEmpty) return null;
     final total = values.fold(0.0, (sum, value) => sum + value);
     return total / values.length;
+  }
+
+  _MetricDisplay _formatEnergy(num value, {String unit = 'kWh'}) {
+    return _formatMetricValue(
+      _toBaseEnergyKwh(value, unit),
+      units: const ['kWh', 'MWh', 'GWh'],
+    );
+  }
+
+  _MetricDisplay _formatPower(num value, {String unit = 'kW'}) {
+    return _formatMetricValue(
+      _toBasePowerKw(value, unit),
+      units: const ['kW', 'MW', 'GW'],
+    );
+  }
+
+  _MetricDisplay _formatCapacity(num value, {String unit = 'kWp'}) {
+    return _formatMetricValue(
+      _toBasePowerKw(value, unit),
+      units: const ['kWp', 'MWp', 'GWp'],
+    );
+  }
+
+  _MetricDisplay _formatMetricValue(num value, {required List<String> units}) {
+    var scaled = value.toDouble();
+    var unitIndex = 0;
+    while (scaled.abs() >= 1000 && unitIndex < units.length - 1) {
+      scaled /= 1000;
+      unitIndex++;
+    }
+
+    final absValue = scaled.abs();
+    final decimals = absValue >= 100
+        ? 0
+        : absValue >= 10
+        ? 1
+        : 2;
+    final pattern = decimals == 0
+        ? '#,##0'
+        : '#,##0.${List.filled(decimals, '#').join()}';
+
+    return _MetricDisplay(
+      NumberFormat(pattern, 'id_ID').format(scaled),
+      units[unitIndex],
+    );
+  }
+
+  double _toBaseEnergyKwh(num value, String unit) {
+    final lower = unit.toLowerCase();
+    if (lower.contains('gwh')) return value * 1000000;
+    if (lower.contains('mwh')) return value * 1000;
+    return value.toDouble();
+  }
+
+  double _toBasePowerKw(num value, String unit) {
+    final lower = unit.toLowerCase();
+    if (lower.contains('gw')) return value * 1000000;
+    if (lower.contains('mw')) return value * 1000;
+    if (lower == 'w') return value / 1000;
+    return value.toDouble();
   }
 
   List<Station> get _topPlants {
@@ -473,8 +543,8 @@ class _OverviewScreenState extends State<OverviewScreen>
                 );
               },
               child: Text(
-                '${_todayEnergy.toStringAsFixed(1)} kWh',
-                key: ValueKey(_todayEnergy.toStringAsFixed(1)),
+                _formatEnergy(_todayEnergy).text,
+                key: ValueKey(_formatEnergy(_todayEnergy).text),
                 style: const TextStyle(
                   fontSize: 30,
                   height: 1.15,
@@ -486,7 +556,7 @@ class _OverviewScreenState extends State<OverviewScreen>
             ),
             const SizedBox(height: 4),
             Text(
-              '${_stations.length} plants  |  ${_totalCapacity.toStringAsFixed(1)} kWp installed  |  ${_totalPower.toStringAsFixed(1)} kW live',
+              '${_stations.length} plants  |  ${_formatCapacity(_totalCapacity).text} installed  |  ${_formatPower(_totalPower).text} live',
               style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
@@ -499,14 +569,14 @@ class _OverviewScreenState extends State<OverviewScreen>
                 Expanded(
                   child: _summaryMetric(
                     label: 'Installed',
-                    value: '${_totalCapacity.toStringAsFixed(1)} kWp',
+                    value: _formatCapacity(_totalCapacity).text,
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: _summaryMetric(
                     label: 'Lifetime',
-                    value: '${_totalEnergy.toStringAsFixed(1)} kWh',
+                    value: _formatEnergy(_totalEnergy).text,
                   ),
                 ),
               ],
@@ -596,7 +666,7 @@ class _OverviewScreenState extends State<OverviewScreen>
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Text(
-                                    '${value.toStringAsFixed(0)} kWh',
+                                    _formatEnergy(value).text,
                                     style: const TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w700,
@@ -703,7 +773,7 @@ class _OverviewScreenState extends State<OverviewScreen>
           ),
           _statCard(
             title: 'Lifetime Energy',
-            value: '${_totalEnergy.toStringAsFixed(1)} kWh',
+            value: _formatEnergy(_totalEnergy).text,
             subtitle: 'Akumulasi semua plant',
             icon: Icons.insights_rounded,
             color: AppColors.primaryDark,
@@ -981,9 +1051,27 @@ class _OverviewScreenState extends State<OverviewScreen>
                     spacing: 14,
                     runSpacing: 8,
                     children: [
-                      _plantMetric('Power', station.powerDisplay),
-                      _plantMetric('Today', station.dayEnergyDisplay),
-                      _plantMetric('Capacity', station.capacityDisplay),
+                      _plantMetric(
+                        'Power',
+                        _formatPower(
+                          station.power ?? 0,
+                          unit: station.powerStr ?? 'kW',
+                        ).text,
+                      ),
+                      _plantMetric(
+                        'Today',
+                        _formatEnergy(
+                          station.dayEnergy ?? 0,
+                          unit: station.dayEnergyStr ?? 'kWh',
+                        ).text,
+                      ),
+                      _plantMetric(
+                        'Capacity',
+                        _formatCapacity(
+                          station.capacity,
+                          unit: station.capacityStr ?? 'kWp',
+                        ).text,
+                      ),
                     ],
                   ),
                 ],

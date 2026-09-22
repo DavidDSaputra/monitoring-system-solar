@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/providers/provider_factory.php';
 require_once __DIR__ . '/providers/solis/normalizer.php';
+require_once __DIR__ . '/services/huawei/huaweiStationService.php';
+require_once __DIR__ . '/services/huawei/huaweiKpiService.php';
+require_once __DIR__ . '/adapters/huawei/huaweiAdapter.php';
 require_once __DIR__ . '/services/growatt/growattPlantService.php';
 require_once __DIR__ . '/adapters/growatt/growattAdapter.php';
 
@@ -68,6 +71,7 @@ try {
             $provider->batteries(true);
             $provider->collectors(true);
             $provider->alarms(true);
+            warm_huawei_plants(false);
             warm_growatt_plants(false);
             $overview = $provider->overview(true);
             api_cache_put('app:overview:v1', [
@@ -89,6 +93,10 @@ try {
             warm_growatt_plants(true);
             break;
 
+        case 'huawei':
+            warm_huawei_plants(true);
+            break;
+
         default:
             api_fail(400, "Unsupported warm target: {$target}");
     }
@@ -100,6 +108,44 @@ try {
     ]);
 } finally {
     api_lock_release($lock);
+}
+
+function warm_huawei_plants(bool $forceRefresh = false): void
+{
+    $stations = huawei_get_stations($forceRefresh);
+    $stationRecords = array_values(array_filter($stations['records'] ?? [], 'is_array'));
+    $plantCodes = array_values(array_filter(array_map(
+        static fn (array $station): string => (string) huawei_pick($station, ['plantCode', 'stationCode', 'dn', 'id'], ''),
+        $stationRecords
+    )));
+    $kpiByStation = [];
+
+    foreach (array_chunk($plantCodes, 50) as $chunk) {
+        $kpis = huawei_get_station_realtime_kpis($chunk, $forceRefresh);
+        foreach (($kpis['records'] ?? []) as $kpiRecord) {
+            if (!is_array($kpiRecord)) {
+                continue;
+            }
+
+            $code = (string) huawei_pick($kpiRecord, ['stationCode', 'plantCode', 'dn', 'id'], '');
+            if ($code !== '') {
+                $kpiByStation[$code] = $kpiRecord;
+            }
+        }
+    }
+
+    $plants = [];
+    foreach ($stationRecords as $station) {
+        $plantCode = (string) huawei_pick($station, ['plantCode', 'stationCode', 'dn', 'id'], '');
+        $plants[] = huawei_merge_station_with_kpi($station, $kpiByStation[$plantCode] ?? []);
+    }
+
+    api_cache_put('huawei:normalized-plants', [
+        'success' => true,
+        'source' => 'huawei',
+        'cached' => false,
+        'data' => $plants,
+    ]);
 }
 
 function warm_growatt_plants(bool $forceRefresh = false): void

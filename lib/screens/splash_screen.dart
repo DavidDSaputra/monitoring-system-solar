@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../config/app_theme.dart';
 import '../config/app_constants.dart';
+import '../services/monitoring_health_service.dart';
 import 'login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -32,7 +35,19 @@ class _SplashScreenState extends State<SplashScreen>
       end: 0,
     ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
     _fadeController.forward();
+    unawaited(_warmUpBackend());
     _goToLogin();
+  }
+
+  Future<void> _warmUpBackend() async {
+    final service = MonitoringHealthService();
+    try {
+      await service.getHealth();
+    } catch (_) {
+      // Visible screens handle connection errors; splash only warms DNS/TLS.
+    } finally {
+      service.dispose();
+    }
   }
 
   Future<void> _goToLogin() async {
