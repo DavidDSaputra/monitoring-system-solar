@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../config/app_theme.dart';
 import '../config/app_constants.dart';
+import '../services/auth_service.dart';
 import '../services/monitoring_health_service.dart';
 import 'login_screen.dart';
+import 'platform_picker_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -36,7 +38,7 @@ class _SplashScreenState extends State<SplashScreen>
     ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
     _fadeController.forward();
     unawaited(_warmUpBackend());
-    _goToLogin();
+    _goToEntryPoint();
   }
 
   Future<void> _warmUpBackend() async {
@@ -50,12 +52,17 @@ class _SplashScreenState extends State<SplashScreen>
     }
   }
 
-  Future<void> _goToLogin() async {
+  Future<void> _goToEntryPoint() async {
     await Future.delayed(const Duration(milliseconds: 2200));
     if (!mounted) return;
+    final biometricLogin = await AuthService.loginWithBiometrics();
+    if (!mounted) return;
+
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (_, _, _) => const LoginScreen(),
+        pageBuilder: (_, _, _) => biometricLogin
+            ? const PlatformPickerScreen()
+            : const LoginScreen(),
         transitionsBuilder: (_, anim, _, child) =>
             FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 500),
@@ -86,11 +93,21 @@ class _SplashScreenState extends State<SplashScreen>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Image.asset(
-                  'assets/images/jarwinn_logo.png',
-                  width: 280,
+                  'assets/images/solarview_logo.png',
+                  width: 132,
                   fit: BoxFit.contain,
                 ),
                 const SizedBox(height: 24),
+                Text(
+                  AppConstants.appName,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                    letterSpacing: -0.6,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 Text(
                   AppConstants.appTagline,
                   style: TextStyle(

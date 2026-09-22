@@ -672,7 +672,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Image.asset(
-                        'assets/images/jarwinn_logo.png',
+                        'assets/images/solarview_logo.png',
                         fit: BoxFit.contain,
                       ),
                     ),

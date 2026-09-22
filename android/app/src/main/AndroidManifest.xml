@@ -1,10 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
 
     <application
-        android:label="jarwinn_monitoring"
+        android:label="SolarView"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/solarview_logo"
+        android:roundIcon="@drawable/solarview_logo"
         android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"

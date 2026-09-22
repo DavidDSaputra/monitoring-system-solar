@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../config/app_constants.dart';
 import '../config/app_theme.dart';
 import '../services/auth_service.dart';
 import 'platform_picker_screen.dart';
@@ -22,6 +25,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   bool _obscurePassword = true;
   bool _isLoading = false;
+  bool _biometricAvailable = false;
   String? _errorMessage;
 
   @override
@@ -37,6 +41,13 @@ class _LoginScreenState extends State<LoginScreen>
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut));
     _animCtrl.forward();
+    unawaited(_loadBiometricAvailability());
+  }
+
+  Future<void> _loadBiometricAvailability() async {
+    final available = await AuthService.isBiometricLoginAvailable();
+    if (!mounted) return;
+    setState(() => _biometricAvailable = available);
   }
 
   @override
@@ -62,14 +73,7 @@ class _LoginScreenState extends State<LoginScreen>
       if (!mounted) return;
 
       if (ok) {
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (_, _, _) => const PlatformPickerScreen(),
-            transitionsBuilder: (_, anim, _, child) =>
-                FadeTransition(opacity: anim, child: child),
-            transitionDuration: const Duration(milliseconds: 400),
-          ),
-        );
+        _openPlatformPicker();
       } else {
         setState(() {
           _isLoading = false;
@@ -83,6 +87,36 @@ class _LoginScreenState extends State<LoginScreen>
         _errorMessage = e.message;
       });
     }
+  }
+
+  Future<void> _submitBiometric() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final ok = await AuthService.loginWithBiometrics();
+    if (!mounted) return;
+    if (ok) {
+      _openPlatformPicker();
+      return;
+    }
+
+    setState(() {
+      _isLoading = false;
+      _errorMessage = 'Autentikasi biometrik dibatalkan atau gagal.';
+    });
+  }
+
+  void _openPlatformPicker() {
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (_, _, _) => const PlatformPickerScreen(),
+        transitionsBuilder: (_, anim, _, child) =>
+            FadeTransition(opacity: anim, child: child),
+        transitionDuration: const Duration(milliseconds: 400),
+      ),
+    );
   }
 
   @override
@@ -118,10 +152,10 @@ class _LoginScreenState extends State<LoginScreen>
   Widget _buildHeader() {
     return Column(
       children: [
-        Image.asset('assets/images/jarwinn_logo.png', width: 220),
+        Image.asset('assets/images/solarview_logo.png', width: 120),
         const SizedBox(height: 16),
-        const Text(
-          'Portal Monitoring',
+        Text(
+          AppConstants.appName,
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w500,
@@ -164,7 +198,7 @@ class _LoginScreenState extends State<LoginScreen>
             ),
             const SizedBox(height: 4),
             const Text(
-              'Khusus teknisi & engineer JARWINN',
+              'Akses monitoring energi untuk teknisi & engineer',
               style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
             ),
             const SizedBox(height: 24),
@@ -283,6 +317,28 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
               ),
             ),
+            if (_biometricAvailable) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: _isLoading ? null : _submitBiometric,
+                  icon: const Icon(Icons.fingerprint_rounded, size: 21),
+                  label: const Text(
+                    'Masuk dengan fingerprint / Face ID',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

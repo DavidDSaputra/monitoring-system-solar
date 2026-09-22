@@ -6,7 +6,7 @@ class AppConstants {
   static const String authLoginPath = 'auth/login.php';
 
   // App Info
-  static const String appName = 'JARWINN Monitoring';
-  static const String appTagline = 'Renewable Energy Towards Brighter Future';
+  static const String appName = 'SolarView';
+  static const String appTagline = 'Smart Solar Monitoring';
   static const String appVersion = '1.0.0';
 }

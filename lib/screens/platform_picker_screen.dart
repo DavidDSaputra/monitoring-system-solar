@@ -128,11 +128,11 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
                       border: Border.all(color: _pickerBorder),
                     ),
                     child: Image.asset(
-                      'assets/images/jarwinn_logo.png',
+                      'assets/images/solarview_logo.png',
                       width: 112,
                       fit: BoxFit.contain,
                       errorBuilder: (_, _, _) => const Text(
-                        'JARWINN',
+                        AppConstants.appName,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w900,

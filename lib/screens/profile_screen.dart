@@ -243,7 +243,7 @@ class ProfileScreen extends StatelessWidget {
             iconBg: const Color(0xFFFFF7ED),
             title: 'Credential Storage',
             trailing: const Text(
-              'Server only',
+              'Secure storage + biometric',
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
           ),
