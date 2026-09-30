@@ -31,15 +31,21 @@ New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
 $apiSource = Join-Path $root 'api'
 $apiDest = Join-Path $packageDir 'api'
 
-robocopy $apiSource $apiDest /E /XD cache /XF *.log | Out-Host
+robocopy $apiSource $apiDest /E /XD cache firebase data /XF *.log .env *.env | Out-Host
 if ($LASTEXITCODE -gt 7) {
     throw "robocopy failed with exit code $LASTEXITCODE"
 }
+$global:LASTEXITCODE = 0
 
 $cacheDest = Join-Path $apiDest 'cache'
 New-Item -ItemType Directory -Force -Path $cacheDest | Out-Null
 Copy-Item -LiteralPath (Join-Path $apiSource 'cache\.htaccess') -Destination (Join-Path $cacheDest '.htaccess') -Force
 Copy-Item -LiteralPath (Join-Path $apiSource 'cache\.gitkeep') -Destination (Join-Path $cacheDest '.gitkeep') -Force
+
+$dataDest = Join-Path $apiDest 'data'
+New-Item -ItemType Directory -Force -Path $dataDest | Out-Null
+Copy-Item -LiteralPath (Join-Path $apiSource 'data\.htaccess') -Destination (Join-Path $dataDest '.htaccess') -Force
+Copy-Item -LiteralPath (Join-Path $apiSource 'data\.gitkeep') -Destination (Join-Path $dataDest '.gitkeep') -Force
 
 Copy-Item -LiteralPath (Join-Path $root '.env.example') -Destination (Join-Path $packageDir '.env.example') -Force
 Copy-Item -LiteralPath (Join-Path $root 'deploy\backend-root.htaccess') -Destination (Join-Path $packageDir '.htaccess') -Force

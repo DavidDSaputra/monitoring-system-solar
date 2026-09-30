@@ -43,6 +43,67 @@ Recommended cron:
 */2 * * * * php /path/to/jarwinn-monitoring/api/warm_cache.php all >/dev/null 2>&1
 ```
 
+## Push Notification
+
+SolarView uses Firebase Cloud Messaging HTTP v1. Create an Android app in
+Firebase with package name `com.example.jarwinn_monitoring`, then download a
+service-account key from Firebase Project Settings > Service accounts. Keep the
+JSON key outside the public web root and configure these values in `.env`:
+
+```env
+FIREBASE_PROJECT_ID=your-firebase-project-id
+FIREBASE_SERVICE_ACCOUNT_FILE=/secure/path/firebase-service-account.json
+FIREBASE_PUSH_TOPIC=solarview-alerts
+PUSH_CRON_SECRET=replace-with-a-long-random-secret
+INCIDENT_STORE_FILE=/var/lib/solarview/incidents.json
+```
+
+Create the incident store outside the public web root and allow the PHP group to
+read it. The push checker records plant, inverter, battery, and datalogger
+transitions here, including priority, SLA deadline, recovery time, and downtime.
+
+```bash
+sudo install -d -m 2770 -o root -g www-data /var/lib/solarview
+echo '{"incidents":[],"updatedAt":null}' | sudo tee /var/lib/solarview/incidents.json >/dev/null
+sudo chown root:www-data /var/lib/solarview/incidents.json
+sudo chmod 660 /var/lib/solarview/incidents.json
+```
+
+Run the status checker one minute after the provider-cache schedule. Keeping the
+jobs separate also allows the checker to use the last good cache if a provider
+refresh is temporarily slow:
+
+```cron
+*/2 * * * * /usr/bin/php /path/to/jarwinn-monitoring/api/warm_cache.php all >/dev/null 2>&1
+1-59/2 * * * * /usr/bin/php /path/to/jarwinn-monitoring/api/notifications/check_alerts.php >/dev/null 2>&1
+```
+
+The first run creates a status baseline and does not send a false alarm. Later
+transitions to offline/alarm/fault send a notification, and recovery to online
+sends a recovery notification. An `unknown` status must occur twice after a
+known-online state before it is treated as offline.
+
+Send a protected test message:
+
+```bash
+curl -X POST "https://api.solisinverters.co.id/api/notifications/test.php" \
+  -H "Content-Type: application/json" \
+  -H "X-Push-Secret: YOUR_PUSH_CRON_SECRET" \
+  --data '{"title":"SolarView test","body":"Push notification aktif."}'
+```
+
+Build the Android app with the public Firebase client identifiers:
+
+```bash
+flutter build apk --release \
+  --dart-define=MONITORING_API_BASE_URL=https://api.solisinverters.co.id/api \
+  --dart-define=FIREBASE_PROJECT_ID=your-firebase-project-id \
+  --dart-define=FIREBASE_API_KEY=your-android-api-key \
+  --dart-define=FIREBASE_MESSAGING_SENDER_ID=your-sender-id \
+  --dart-define=FIREBASE_ANDROID_APP_ID=your-android-app-id \
+  --dart-define=FIREBASE_PUSH_TOPIC=solarview-alerts
+```
+
 On cPanel shared hosting, use Cron Jobs and adjust the PHP binary/path to your hosting account, for example:
 
 ```bash

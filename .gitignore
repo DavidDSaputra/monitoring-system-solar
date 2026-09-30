@@ -45,6 +45,13 @@ test_api.dart
 /api/cache/
 !/api/cache/.htaccess
 !/api/cache/.gitkeep
+/api/data/*
+!/api/data/.htaccess
+!/api/data/.gitkeep
+
+# Firebase credentials and downloaded app configuration
+/api/services/firebase/
+/android/app/google-services.json
 
 # Symbolication related
 app.*.symbols
