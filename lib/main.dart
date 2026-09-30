@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'config/app_theme.dart';
 import 'config/app_constants.dart';
 import 'screens/splash_screen.dart';
+import 'services/push_notification_navigation_service.dart';
+import 'services/push_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +26,9 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
+  await PushNotificationService.initialize();
+  PushNotificationNavigationService.initialize();
+
   runApp(const JarwinnMonitoringApp());
 }
 
@@ -33,6 +38,7 @@ class JarwinnMonitoringApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: PushNotificationNavigationService.navigatorKey,
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,

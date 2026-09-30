@@ -5,6 +5,8 @@ import '../config/app_theme.dart';
 import '../config/app_constants.dart';
 import '../services/auth_service.dart';
 import '../services/monitoring_health_service.dart';
+import '../services/push_notification_navigation_service.dart';
+import '../services/push_notification_service.dart';
 import 'login_screen.dart';
 import 'platform_picker_screen.dart';
 
@@ -24,6 +26,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     super.initState();
+    PushNotificationNavigationService.markAuthenticationRequired();
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 1200),
       vsync: this,
@@ -57,12 +60,14 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
     final biometricLogin = await AuthService.loginWithBiometrics();
     if (!mounted) return;
+    if (biometricLogin) {
+      unawaited(PushNotificationService.enable());
+    }
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (_, _, _) => biometricLogin
-            ? const PlatformPickerScreen()
-            : const LoginScreen(),
+        pageBuilder: (_, _, _) =>
+            biometricLogin ? const PlatformPickerScreen() : const LoginScreen(),
         transitionsBuilder: (_, anim, _, child) =>
             FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 500),

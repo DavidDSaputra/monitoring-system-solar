@@ -4,6 +4,7 @@ import '../config/app_constants.dart';
 import '../config/app_theme.dart';
 import '../config/api_base_urls.dart';
 import '../services/auth_service.dart';
+import '../services/push_notification_service.dart';
 import 'login_screen.dart';
 import 'platform_picker_screen.dart';
 
@@ -30,7 +31,7 @@ class ProfileScreen extends StatelessWidget {
                   const SizedBox(height: 20),
                   _buildSectionLabel('System'),
                   const SizedBox(height: 8),
-                  _buildSystemCard(),
+                  _buildSystemCard(context),
                   const SizedBox(height: 20),
                   _buildSectionLabel('About'),
                   const SizedBox(height: 8),
@@ -274,10 +275,65 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSystemCard() {
+  Widget _buildSystemCard(BuildContext context) {
     return _card(
       child: Column(
         children: [
+          ValueListenableBuilder<PushNotificationState>(
+            valueListenable: PushNotificationService.status,
+            builder: (context, pushState, _) {
+              final trailing = pushState.canToggle
+                  ? Switch.adaptive(
+                      value: pushState.isEnabled,
+                      onChanged: pushState.isBusy
+                          ? null
+                          : (enabled) async {
+                              final messenger = ScaffoldMessenger.of(context);
+                              if (enabled) {
+                                final activated =
+                                    await PushNotificationService.enable();
+                                if (!activated && context.mounted) {
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        PushNotificationService
+                                            .status
+                                            .value
+                                            .message,
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } else {
+                                await PushNotificationService.disable();
+                              }
+                            },
+                      activeThumbColor: AppColors.primary,
+                    )
+                  : const Text(
+                      'Belum dikonfigurasi',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: AppColors.textTertiary,
+                      ),
+                    );
+              return _listRow(
+                icon: pushState.isEnabled
+                    ? Icons.notifications_active_rounded
+                    : Icons.notifications_none_rounded,
+                iconColor: pushState.isEnabled
+                    ? AppColors.online
+                    : AppColors.warning,
+                iconBg: pushState.isEnabled
+                    ? const Color(0xFFD1FAE5)
+                    : const Color(0xFFFEF3C7),
+                title: 'Push Notification',
+                subtitle: pushState.message,
+                trailing: trailing,
+              );
+            },
+          ),
+          _divider(),
           _listRow(
             icon: Icons.solar_power_rounded,
             iconColor: AppColors.primary,
@@ -455,6 +511,7 @@ class ProfileScreen extends StatelessWidget {
     required Color iconColor,
     required Color iconBg,
     required String title,
+    String? subtitle,
     Widget? trailing,
     VoidCallback? onTap,
   }) {
@@ -476,13 +533,30 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: AppColors.textTertiary,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             ?trailing,

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../config/app_constants.dart';
 import '../config/app_theme.dart';
 import '../services/auth_service.dart';
+import '../services/push_notification_navigation_service.dart';
+import '../services/push_notification_service.dart';
 import 'platform_picker_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -31,6 +33,7 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void initState() {
     super.initState();
+    PushNotificationNavigationService.markAuthenticationRequired();
     _animCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
@@ -109,6 +112,7 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _openPlatformPicker() {
+    unawaited(PushNotificationService.enable());
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (_, _, _) => const PlatformPickerScreen(),
