@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
+import 'engineer_tools_screen.dart';
 import 'events_screen.dart';
 import 'overview_screen.dart';
 import 'profile_screen.dart';
@@ -30,7 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const DashboardScreen(),
           const EventsScreen(),
           const OverviewScreen(),
-          _buildPlaceholderTab('Service', Icons.build_outlined),
+          const EngineerToolsScreen(),
           const ProfileScreen(),
         ],
       ),
@@ -84,9 +85,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       const Expanded(child: SizedBox.shrink()),
                       _navItem(
                         3,
-                        Icons.build_rounded,
-                        Icons.build_outlined,
-                        'Service',
+                        Icons.engineering_rounded,
+                        Icons.engineering_outlined,
+                        'Engineer',
                       ),
                       _navItem(
                         4,
@@ -210,34 +211,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 fontWeight: FontWeight.w700,
                 color: Colors.white,
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlaceholderTab(String title, IconData icon) {
-    return Scaffold(
-      backgroundColor: _shellBackground,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 64, color: _navMuted.withValues(alpha: 0.4)),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Coming soon',
-              style: TextStyle(fontSize: 13, color: _navMuted),
             ),
           ],
         ),

@@ -4,17 +4,23 @@ import '../config/app_constants.dart';
 import '../config/app_theme.dart';
 import '../services/auth_service.dart';
 import '../services/monitoring_health_service.dart';
+import '../services/push_notification_navigation_service.dart';
 import 'growatt_dashboard_screen.dart';
+import 'engineer_tools_screen.dart';
 import 'huawei_dashboard_screen.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
 
-const _pickerBg = Color(0xFFFFF8F2);
-const _pickerInk = Color(0xFF111827);
-const _pickerMuted = Color(0xFF667085);
-const _pickerOrange = Color(0xFFF97316);
-const _pickerOrangeSoft = Color(0xFFFFF1E6);
-const _pickerBorder = Color(0xFFF4D6BF);
+const _pickerBg = Color(0xFFDDEDF2);
+const _pickerInk = Color(0xFF1F2937);
+const _pickerMuted = Color(0xFF718096);
+const _pickerOrange = Color(0xFFFF8A4C);
+const _pickerOrangeSoft = Color(0xFFFFF2E9);
+const _pickerBlue = Color(0xFF6675D8);
+const _pickerBlueSoft = Color(0xFFEEF0FF);
+const _pickerGreen = Color(0xFF35B98A);
+const _pickerGreenSoft = Color(0xFFE8F8F2);
+const _pickerBorder = Color(0xFFE5EBF1);
 
 class PlatformPickerScreen extends StatefulWidget {
   const PlatformPickerScreen({super.key});
@@ -31,6 +37,9 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
   void initState() {
     super.initState();
     _healthFuture = _healthService.getHealth();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      PushNotificationNavigationService.markAuthenticatedShellReady();
+    });
   }
 
   @override
@@ -45,9 +54,13 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
             padding: const EdgeInsets.fromLTRB(18, 18, 18, 34),
             sliver: SliverList.list(
               children: [
+                _buildHeroCard(),
+                const SizedBox(height: 16),
                 _buildHealthCard(),
                 const SizedBox(height: 16),
-                _buildSectionLabel('Tersedia'),
+                _buildEngineerShortcut(),
+                const SizedBox(height: 16),
+                _buildSectionLabel('Pilih provider'),
                 const SizedBox(height: 10),
                 _PlatformCard(
                   brand: _solis,
@@ -85,7 +98,7 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                _buildSectionLabel('Segera Hadir'),
+                _buildSectionLabel('Segera hadir'),
                 const SizedBox(height: 10),
                 ..._comingSoon.map(
                   (b) => Padding(
@@ -106,66 +119,202 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: _pickerBorder)),
-      ),
+      color: Colors.white,
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Container(
-                    height: 40,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: _pickerOrangeSoft,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _pickerBorder),
-                    ),
-                    child: Image.asset(
-                      'assets/images/solarview_logo.png',
-                      width: 112,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => const Text(
-                        AppConstants.appName,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          color: _pickerInk,
-                        ),
+              Container(
+                width: 42,
+                height: 42,
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: _pickerOrangeSoft,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Image.asset(
+                  'assets/images/solarview_logo.png',
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, _, _) => const Icon(
+                    Icons.solar_power_rounded,
+                    color: _pickerOrange,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 11),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      AppConstants.appName,
+                      style: TextStyle(
+                        color: _pickerInk,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.3,
                       ),
                     ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Smart solar monitoring',
+                      style: TextStyle(
+                        color: _pickerMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _LogoutButton(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroCard() {
+    return Container(
+      height: 188,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF709AD7), Color(0xFFB8C8F2)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6C8FC7).withValues(alpha: 0.22),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -22,
+            bottom: -10,
+            width: 245,
+            child: Opacity(
+              opacity: 0.88,
+              child: Image.asset(
+                'assets/images/solar_panorama.png',
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+          Positioned(
+            right: 18,
+            top: 18,
+            child: Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.20),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.wb_sunny_rounded,
+                color: Colors.white,
+                size: 21,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 120, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _heroChip(),
+                const SizedBox(height: 12),
+                const Text(
+                  'Kendalikan\nenergi yang Anda hasilkan',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    height: 1.05,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: -0.6,
                   ),
-                  const Spacer(),
-                  _LogoutButton(),
-                ],
-              ),
-              const SizedBox(height: 22),
-              _heroChip(),
-              const SizedBox(height: 12),
-              const Text(
-                'Pilih platform',
-                style: TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w900,
-                  color: _pickerInk,
-                  height: 1.05,
+                ),
+                const Spacer(),
+                const Text(
+                  'Pilih provider untuk mulai monitoring',
+                  style: TextStyle(
+                    color: Color(0xE6FFFFFF),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEngineerShortcut() {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const EngineerToolsScreen()),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _pickerBorder),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: _pickerOrangeSoft,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.engineering_rounded,
+                  color: _pickerOrange,
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                AppConstants.appTagline,
-                style: const TextStyle(
-                  fontSize: 13,
-                  height: 1.35,
-                  fontWeight: FontWeight.w600,
-                  color: _pickerMuted,
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Engineer Center',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        color: _pickerInk,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Riwayat gangguan, SLA, downtime & laporan',
+                      style: TextStyle(fontSize: 11, color: _pickerMuted),
+                    ),
+                  ],
                 ),
+              ),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+                color: _pickerMuted,
               ),
             ],
           ),
@@ -178,19 +327,19 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: _pickerOrangeSoft,
+        color: Colors.white.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: _pickerBorder),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
       ),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.grid_view_rounded, color: _pickerOrange, size: 15),
+          Icon(Icons.grid_view_rounded, color: Colors.white, size: 15),
           SizedBox(width: 6),
           Text(
             'Monitoring solar',
             style: TextStyle(
-              color: _pickerOrange,
+              color: Colors.white,
               fontSize: 11,
               fontWeight: FontWeight.w800,
             ),
@@ -218,7 +367,7 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
       builder: (context, snapshot) {
         final health = snapshot.data;
         final failed = snapshot.hasError;
-        final color = failed ? _pickerMuted : _pickerOrange;
+        final color = failed ? _pickerMuted : _pickerGreen;
         final title = failed
             ? 'Connection check'
             : 'System ${health?.status.toUpperCase() ?? 'checking'}';
@@ -312,12 +461,12 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
   Widget _providerPill(String label, ProviderHealth? provider) {
     final status = provider?.status ?? 'unknown';
     final usable = status == 'ok' || status == 'stale';
-    final color = usable ? _pickerOrange : _pickerMuted;
+    final color = usable ? _pickerGreen : _pickerMuted;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: usable ? _pickerOrangeSoft : const Color(0xFFF3F4F6),
+        color: usable ? _pickerGreenSoft : const Color(0xFFF3F4F6),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -358,8 +507,8 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
     name: 'SolisCloud',
     description: 'Solis inverter monitoring via SolisCloud API',
     tag: 'Solis',
-    color: _pickerOrange,
-    bgColor: _pickerOrangeSoft,
+    color: _pickerBlue,
+    bgColor: _pickerBlueSoft,
     icon: Icons.solar_power_rounded,
     logoAsset: 'assets/images/solis-logo.png',
     apiLabel: 'SolisCloud API v1',
@@ -369,8 +518,8 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
     name: 'Huawei FusionSolar',
     description: 'Huawei inverter monitoring via backend API',
     tag: 'Huawei',
-    color: _pickerOrange,
-    bgColor: _pickerOrangeSoft,
+    color: Color(0xFF8A6BE8),
+    bgColor: Color(0xFFF2EEFF),
     icon: Icons.memory_rounded,
     logoAsset: 'assets/images/fusionsolar-logo.jpg',
     apiLabel: 'FusionSolar Northbound',
@@ -380,8 +529,8 @@ class _PlatformPickerScreenState extends State<PlatformPickerScreen> {
     name: 'Growatt',
     description: 'Growatt inverter monitoring via backend API',
     tag: 'Growatt',
-    color: _pickerOrange,
-    bgColor: _pickerOrangeSoft,
+    color: Color(0xFF39A786),
+    bgColor: Color(0xFFEAF8F3),
     icon: Icons.bolt_rounded,
     logoAsset: 'assets/images/Growatt-logo.png',
     apiLabel: 'Growatt Open API',
@@ -427,11 +576,11 @@ class _LogoutButton extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: _pickerOrangeSoft,
+          color: _pickerBg,
           shape: BoxShape.circle,
           border: Border.all(color: _pickerBorder),
         ),
-        child: const Icon(Icons.logout_rounded, size: 18, color: _pickerOrange),
+        child: const Icon(Icons.logout_rounded, size: 18, color: _pickerMuted),
       ),
     );
   }
@@ -541,7 +690,7 @@ class _PlatformCardState extends State<_PlatformCard> {
                     boxShadow: isActive
                         ? [
                             BoxShadow(
-                              color: _pickerOrange.withValues(
+                              color: brand.color.withValues(
                                 alpha: lift ? 0.16 : 0.08,
                               ),
                               blurRadius: lift ? 22 : 14,
@@ -648,7 +797,7 @@ class _PlatformCardState extends State<_PlatformCard> {
                                 height: 34,
                                 decoration: BoxDecoration(
                                   color: isActive
-                                      ? _pickerOrangeSoft
+                                      ? brand.bgColor
                                       : const Color(0xFFF3F4F6),
                                   shape: BoxShape.circle,
                                 ),
@@ -658,7 +807,7 @@ class _PlatformCardState extends State<_PlatformCard> {
                                       : Icons.lock_outline_rounded,
                                   size: 18,
                                   color: isActive
-                                      ? _pickerOrange
+                                      ? brand.color
                                       : AppColors.textTertiary,
                                 ),
                               ),
@@ -687,7 +836,7 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: isActive ? _pickerOrangeSoft : AppColors.surfaceLight,
+        color: isActive ? _pickerGreenSoft : AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
@@ -695,7 +844,7 @@ class _StatusBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w700,
-          color: isActive ? _pickerOrange : AppColors.textTertiary,
+          color: isActive ? _pickerGreen : AppColors.textTertiary,
         ),
       ),
     );
