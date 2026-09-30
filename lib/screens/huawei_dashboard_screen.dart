@@ -7,12 +7,12 @@ import '../models/huawei/huawei_alarm.dart';
 import '../models/huawei/huawei_device.dart';
 import '../models/huawei/huawei_plant.dart';
 import '../services/huawei/huawei_monitoring_service.dart';
+import 'huawei_plant_detail_screen.dart';
 import 'provider_record_detail_screen.dart';
 
-const _fusionBlue = Color(0xFF1687E8);
-const _fusionDark = Color(0xFF1F1F1F);
-const _softBlue = Color(0xFFEFF6FF);
-const _line = Color(0xFFE2E8F0);
+const _fusionBlue = Color(0xFF6675D8);
+const _softBlue = Color(0xFFEEF0FF);
+const _line = Color(0xFFE4EAF2);
 
 class HuaweiDashboardScreen extends StatefulWidget {
   const HuaweiDashboardScreen({super.key});
@@ -177,7 +177,7 @@ class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FB),
+      backgroundColor: const Color(0xFFF3F6FA),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -257,35 +257,73 @@ class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
 
   Widget _buildMobileTopBar() {
     return Container(
-      height: 76,
+      height: 78,
       padding: const EdgeInsets.symmetric(horizontal: 14),
-      color: _fusionDark,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: _line)),
+      ),
       child: Row(
         children: [
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+            icon: const Icon(
+              Icons.arrow_back_rounded,
+              color: AppColors.textPrimary,
+            ),
           ),
-          const SizedBox(width: 8),
-          Image.asset(
-            'assets/images/fusionsolar-logo.jpg',
-            width: 104,
+          Container(
+            width: 38,
             height: 38,
-            fit: BoxFit.contain,
-            errorBuilder: (_, _, _) => const Text(
-              'FusionSolar',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: _softBlue,
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Image.asset(
+              'assets/images/solarview_logo.png',
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => const Icon(
+                Icons.solar_power_rounded,
+                color: _fusionBlue,
+                size: 20,
               ),
             ),
           ),
-          const Spacer(),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'SolarView',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'FusionSolar workspace',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
           _topBadge('Monitoring'),
           IconButton(
             onPressed: () =>
                 _loadPlants(showLoading: false, forceRefresh: true),
-            icon: const Icon(Icons.refresh_rounded, color: Colors.white70),
+            icon: const Icon(
+              Icons.refresh_rounded,
+              color: AppColors.textSecondary,
+            ),
           ),
         ],
       ),
@@ -296,7 +334,7 @@ class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: _fusionBlue.withValues(alpha: 0.16),
+        color: _softBlue,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -400,6 +438,29 @@ class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
               ),
             ),
           ),
+          if (_plant.plantCode.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => HuaweiPlantDetailScreen(plant: _plant),
+                  ),
+                ),
+                icon: const Icon(Icons.open_in_new_rounded, size: 17),
+                label: const Text('Lihat detail plant'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _fusionBlue,
+                  side: const BorderSide(color: _fusionBlue),
+                  minimumSize: const Size.fromHeight(42),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1332,7 +1393,7 @@ class _HuaweiDashboardScreenState extends State<HuaweiDashboardScreen> {
   BoxDecoration _cardDecoration() {
     return BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(20),
       border: Border.all(color: _line),
       boxShadow: [
         BoxShadow(

@@ -11,14 +11,16 @@ import '../services/growatt/growatt_monitoring_service.dart';
 import 'growatt_plant_detail_screen.dart';
 import 'provider_record_detail_screen.dart';
 
-const _growattNavy = Color(0xFF2E2B69);
-const _growattBlue = Color(0xFF265D96);
-const _growattPanel = Color(0xFF2A326F);
-const _growattTile = Color(0xFF294B82);
-const _growattTileLight = Color(0xFF45689E);
-const _growattCyan = Color(0xFF38D2D0);
-const _growattGreen = Color(0xFF35C64A);
-const _growattYellow = Color(0xFFF5E500);
+// SolarView palette shared by provider workspaces. Growatt data gets its own
+// accent, but the shell no longer mirrors the vendor web dashboard.
+const _growattNavy = Color(0xFF253A55);
+const _growattBlue = Color(0xFF6675D8);
+const _growattPanel = Color(0xFF354B6B);
+const _growattTile = Color(0xFF456083);
+const _growattTileLight = Color(0xFF58739B);
+const _growattCyan = Color(0xFF8BD5F2);
+const _growattGreen = Color(0xFF55C6A0);
+const _growattYellow = Color(0xFFFFC36B);
 
 class GrowattDashboardScreen extends StatefulWidget {
   const GrowattDashboardScreen({super.key});
@@ -236,7 +238,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: const Color(0xFFF3F6FA),
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(
@@ -407,7 +409,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
             height: 36,
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(13),
             ),
             child: const Icon(
               Icons.arrow_back_rounded,
@@ -417,21 +419,40 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
           ),
         ),
         const SizedBox(width: 12),
+        Container(
+          width: 34,
+          height: 34,
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Image.asset(
+            'assets/images/solarview_logo.png',
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) => const Icon(
+              Icons.solar_power_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+        ),
+        const SizedBox(width: 9),
         const Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Dashboard',
+                'SolarView',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              SizedBox(height: 8),
+              SizedBox(height: 4),
               Text(
-                'Current Location: Dashboard',
+                'Growatt workspace',
                 style: TextStyle(color: Colors.white70, fontSize: 11),
               ),
             ],
@@ -447,10 +468,10 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
   Widget _buildNavButtons() {
     return Row(
       children: [
-        _navButton(Icons.speed_rounded, 'Dashboard', true),
+        _navButton(Icons.speed_rounded, 'Overview', true),
         _navButton(Icons.bar_chart_rounded, 'Energy', false),
-        _navButton(Icons.article_rounded, 'Log', false),
-        _navButton(Icons.settings_rounded, 'Setting', false),
+        _navButton(Icons.article_rounded, 'Logs', false),
+        _navButton(Icons.settings_rounded, 'Settings', false),
       ],
     );
   }
@@ -464,8 +485,12 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
         color: active
             ? Colors.white.withValues(alpha: 0.26)
             : Colors.black.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: active ? Colors.white24 : Colors.transparent),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: active
+              ? Colors.white.withValues(alpha: 0.25)
+              : Colors.transparent,
+        ),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -524,7 +549,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
       height: 360,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: const Center(
         child: CircularProgressIndicator(color: _growattCyan),
@@ -541,7 +566,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
       padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
       decoration: BoxDecoration(
         color: _growattPanel.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: Column(
         children: [
@@ -853,6 +878,8 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           mainAxisExtent: tileHeight,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
         ),
         itemBuilder: (_, index) => items[index],
       ),
@@ -874,6 +901,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
         return Container(
           decoration: BoxDecoration(
             color: color,
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
             boxShadow: [
               BoxShadow(
@@ -974,6 +1002,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: const Color(0xFFDDE3EE)),
         ),
         child: Column(
@@ -998,7 +1027,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
                     decoration: BoxDecoration(
                       color: const Color(0xFFF8FAFC),
                       border: Border.all(color: const Color(0xFFD8DEE9)),
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(13),
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
@@ -1047,7 +1076,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
                     decoration: BoxDecoration(
                       color: const Color(0xFFF8FAFC),
                       border: Border.all(color: const Color(0xFFD8DEE9)),
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(13),
                     ),
                     child: Text(
                       '${_selectedPlantIndex + 1} / ${_plants.length}  ${_plant.plantName}',
@@ -1072,7 +1101,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
               children: [
                 for (final plant in _plants)
                   InkWell(
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(13),
                     onTap: () => _selectPlant(plant),
                     child: Container(
                       height: 36,
@@ -1083,7 +1112,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
                         color: plant.plantCode == _plant.plantCode
                             ? _growattBlue
                             : Colors.white,
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(13),
                         border: Border.all(
                           color: plant.plantCode == _plant.plantCode
                               ? _growattBlue
@@ -1103,8 +1132,33 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
                         ),
                       ),
                     ),
-                  ),
+                ),
               ],
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _plant.plantCode.isEmpty
+                    ? null
+                    : () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => GrowattPlantDetailScreen(
+                            plant: _plant,
+                          ),
+                        ),
+                      ),
+                icon: const Icon(Icons.open_in_new_rounded, size: 17),
+                label: const Text('Lihat detail plant'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _growattBlue,
+                  side: const BorderSide(color: _growattBlue),
+                  minimumSize: const Size.fromHeight(42),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -1128,7 +1182,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
           foregroundColor: Colors.white,
           disabledBackgroundColor: const Color(0xFFE5EAF2),
           disabledForegroundColor: AppColors.textTertiary,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
         ),
         child: Icon(icon, size: 22),
       ),
@@ -1142,6 +1196,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
         decoration: BoxDecoration(
           color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: const Color(0xFFDDE3EE)),
         ),
         child: Column(
@@ -1285,6 +1340,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
         decoration: BoxDecoration(
           color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: const Color(0xFFDDE3EE)),
         ),
         child: Column(
@@ -1371,6 +1427,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: const Color(0xFFDDE3EE)),
         ),
         child: const Column(
@@ -1422,6 +1479,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
         decoration: BoxDecoration(
           color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: const Color(0xFFDDE3EE)),
         ),
         child: Column(
@@ -1509,6 +1567,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: const Color(0xFFDDE3EE)),
         ),
         child: isWide
@@ -1555,8 +1614,8 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
             width: 54,
             height: 62,
             decoration: BoxDecoration(
-              color: const Color(0xFF4EA5F5),
-              borderRadius: BorderRadius.circular(2),
+              color: _growattBlue,
+              borderRadius: BorderRadius.circular(13),
             ),
             child: const Icon(
               Icons.developer_board_rounded,
@@ -1645,7 +1704,7 @@ class _GrowattDashboardScreenState extends State<GrowattDashboardScreen> {
           ),
           child: const Icon(
             Icons.tune_rounded,
-            color: Color(0xFF4EA5F5),
+            color: _growattBlue,
             size: 22,
           ),
         ),

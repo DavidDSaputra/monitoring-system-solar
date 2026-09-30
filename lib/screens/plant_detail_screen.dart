@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../config/app_theme.dart';
 import '../models/station.dart';
 import '../models/station_detail.dart';
@@ -10,6 +11,7 @@ import '../models/alarm.dart';
 import '../models/energy_data.dart';
 import '../repositories/monitoring_repository.dart';
 import '../widgets/energy_chart.dart';
+import '../widgets/plant_health_banner.dart';
 import '../widgets/shimmer_loading.dart';
 import 'inverter_data_screen.dart';
 
@@ -28,7 +30,13 @@ enum _DeviceFilter { all, inverter, datalogger }
 
 class PlantDetailScreen extends StatefulWidget {
   final Station station;
-  const PlantDetailScreen({super.key, required this.station});
+  final bool showAlarmsInitially;
+
+  const PlantDetailScreen({
+    super.key,
+    required this.station,
+    this.showAlarmsInitially = false,
+  });
 
   @override
   State<PlantDetailScreen> createState() => _PlantDetailScreenState();
@@ -50,6 +58,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
   bool _loadingCollectors = true;
   bool _loadingAlarms = true;
   bool _loadingChart = true;
+  DateTime? _lastSuccessfulSync;
 
   // tab state
   _BottomTab _bottomTab = _BottomTab.overview;
@@ -67,6 +76,9 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.showAlarmsInitially) {
+      _bottomTab = _BottomTab.alarm;
+    }
     _loadDetail();
     _loadInverters();
     _loadCollectors();
@@ -97,6 +109,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
         setState(() {
           _detail = d;
           _loadingDetail = false;
+          _lastSuccessfulSync = DateTime.now();
         });
       }
     } catch (_) {
@@ -651,26 +664,68 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
   // ── Update bar ───────────────────────────────────────────────────
 
   Widget _buildUpdateBar() {
+    final station = widget.station;
+    final detailState = _detail?.state;
+    final isOnline = detailState == null ? station.isOnline : detailState == 1;
+    final statusLabel = detailState == null
+        ? station.statusText
+        : _detail!.statusText;
+    final offlineInverters = _inverters
+        .where((device) => device.state != null && !device.isOnline)
+        .length;
+    final offlineCollectors = _collectors
+        .where((device) => device.state != null && !device.isOnline)
+        .length;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Column(
         children: [
-          const Icon(Icons.access_time_rounded, size: 12, color: _textTertiary),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Text(
-              'Last Update: ${_formattedUpdateTime()}',
-              style: const TextStyle(
-                fontSize: 10,
-                color: _textTertiary,
-                fontWeight: FontWeight.w500,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
+          PlantHealthBanner(
+            providerName: 'Solis',
+            isOnline: isOnline,
+            statusLabel: statusLabel,
+            updatedAt: _formattedUpdateTime(),
+            fallbackSyncTime: _lastSuccessfulSync,
+            offlineDevices: offlineInverters + offlineCollectors,
+            totalDevices: _inverters.length + _collectors.length,
+            isRefreshing:
+                _loadingDetail || _loadingInverters || _loadingCollectors,
+            accentColor: AppColors.primary,
+            onRefresh: _loadingDetail ? null : _refresh,
           ),
+          if (_hasPlantLocation)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: _openPlantNavigation,
+                icon: const Icon(Icons.near_me_rounded, size: 17),
+                label: const Text('Navigasi ke plant'),
+              ),
+            ),
         ],
       ),
     );
+  }
+
+  bool get _hasPlantLocation {
+    return (_detail?.latitude != null && _detail?.longitude != null) ||
+        (_detail?.addr?.trim().isNotEmpty ?? false) ||
+        (widget.station.addr?.trim().isNotEmpty ?? false);
+  }
+
+  Future<void> _openPlantNavigation() async {
+    final destination = _detail?.latitude != null && _detail?.longitude != null
+        ? '${_detail!.latitude},${_detail!.longitude}'
+        : (_detail?.addr?.trim().isNotEmpty ?? false)
+        ? _detail!.addr!.trim()
+        : widget.station.addr?.trim() ?? '';
+    if (destination.isEmpty) return;
+    final uri = Uri.https('www.google.com', '/maps/dir/', {
+      'api': '1',
+      'destination': destination,
+    });
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   // ── Daily Data ───────────────────────────────────────────────────

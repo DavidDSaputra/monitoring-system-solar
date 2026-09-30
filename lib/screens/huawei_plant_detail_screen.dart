@@ -1,14 +1,20 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../config/app_theme.dart';
 import '../models/huawei/huawei_device.dart';
 import '../models/huawei/huawei_plant.dart';
 import '../services/huawei/huawei_monitoring_service.dart';
+import '../widgets/plant_health_banner.dart';
 import '../widgets/shimmer_loading.dart';
 
 const _huaweiBlue = Color(0xFF2563EB);
 const _huaweiBlueLight = Color(0xFFEFF6FF);
+const _detailPurple = Color(0xFF8E7CE8);
+const _detailInk = Color(0xFF1F2937);
+const _detailMuted = Color(0xFF7A8799);
+const _detailGreen = Color(0xFF35B98A);
 
 class HuaweiPlantDetailScreen extends StatefulWidget {
   final HuaweiPlant plant;
@@ -27,6 +33,7 @@ class _HuaweiPlantDetailScreenState extends State<HuaweiPlantDetailScreen> {
   List<HuaweiDevice> _devices = [];
   bool _isLoading = true;
   String? _errorMessage;
+  DateTime? _lastSuccessfulSync;
 
   HuaweiPlant get _currentPlant => _plant ?? widget.plant;
 
@@ -57,6 +64,9 @@ class _HuaweiPlantDetailScreenState extends State<HuaweiPlantDetailScreen> {
       setState(() {
         _plant = merged;
         if (devices != null) _devices = devices;
+        if (realtime != null || devices != null) {
+          _lastSuccessfulSync = DateTime.now();
+        }
         _appendPowerSample(merged.currentPower);
         _errorMessage = realtime == null && devices == null
             ? 'Detail Huawei belum tersinkron. Tarik untuk refresh.'
@@ -112,6 +122,25 @@ class _HuaweiPlantDetailScreenState extends State<HuaweiPlantDetailScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                   sliver: SliverToBoxAdapter(child: _buildErrorBanner()),
                 ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                sliver: SliverToBoxAdapter(
+                  child: PlantHealthBanner(
+                    providerName: 'FusionSolar',
+                    isOnline: plant.isOnline,
+                    statusLabel: plant.status,
+                    updatedAt: plant.updatedAt,
+                    fallbackSyncTime: _lastSuccessfulSync,
+                    offlineDevices: _devices
+                        .where((device) => !device.isOnline)
+                        .length,
+                    totalDevices: _devices.length,
+                    isRefreshing: _isLoading,
+                    accentColor: _huaweiBlue,
+                    onRefresh: _isLoading ? null : _loadDetail,
+                  ),
+                ),
+              ),
               if (_isLoading)
                 const SliverPadding(
                   padding: EdgeInsets.all(16),
@@ -132,6 +161,8 @@ class _HuaweiPlantDetailScreenState extends State<HuaweiPlantDetailScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
                   sliver: SliverList.list(
                     children: [
+                      _buildEnergyHero(plant),
+                      const SizedBox(height: 14),
                       _buildPowerChart(plant),
                       const SizedBox(height: 12),
                       _buildEnergySummary(plant),
@@ -328,6 +359,350 @@ class _HuaweiPlantDetailScreenState extends State<HuaweiPlantDetailScreen> {
     );
   }
 
+  Widget _buildEnergyHero(HuaweiPlant plant) {
+    final intensity = plant.capacity <= 0
+        ? 0.0
+        : (plant.currentPower / plant.capacity).clamp(0.0, 1.0) * 100;
+    final savings = plant.dailyEnergy * 1500;
+    final co2Saved = plant.dailyEnergy * 0.72;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: AppColors.surfaceBorder),
+        boxShadow: [
+          BoxShadow(
+            color: _huaweiBlue.withValues(alpha: 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                "Today's Energy",
+                style: TextStyle(
+                  color: _detailMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              _heroStatus(plant.status),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 6,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${plant.dailyEnergy.toStringAsFixed(1)} kWh',
+                      style: const TextStyle(
+                        color: _detailInk,
+                        fontSize: 30,
+                        height: 1.05,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: -1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      '${plant.currentPower.toStringAsFixed(2)} kW live output',
+                      style: const TextStyle(
+                        color: _detailMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 145,
+                      width: double.infinity,
+                      child: Image.asset(
+                        'assets/images/solar_panel_closeup.png',
+                        fit: BoxFit.contain,
+                        alignment: Alignment.bottomLeft,
+                        filterQuality: FilterQuality.high,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                flex: 5,
+                child: Column(
+                  children: [
+                    _heroMetric(
+                      Icons.wb_sunny_outlined,
+                      'Intensity',
+                      '${intensity.toStringAsFixed(0)}%',
+                      'of capacity',
+                      _huaweiBlue,
+                    ),
+                    const SizedBox(height: 7),
+                    _heroMetric(
+                      Icons.savings_outlined,
+                      'Savings',
+                      'Rp ${_compactNumber(savings)}',
+                      'estimated today',
+                      _detailPurple,
+                    ),
+                    const SizedBox(height: 7),
+                    _heroMetric(
+                      Icons.eco_outlined,
+                      'CO₂ Saved',
+                      '${co2Saved.toStringAsFixed(1)} kg',
+                      'estimated today',
+                      _detailGreen,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: _huaweiBlue.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.bolt_rounded, color: _huaweiBlue, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${plant.dailyEnergy.toStringAsFixed(1)} kWh',
+                      style: const TextStyle(
+                        color: _detailInk,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const Text(
+                      'Energy generated today',
+                      style: TextStyle(color: _detailMuted, fontSize: 10),
+                    ),
+                  ],
+                ),
+              ),
+              _periodPill('Today'),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _buildSoftTrend(),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _heroFooterMetric(
+                'Today',
+                '${plant.dailyEnergy.toStringAsFixed(1)} kWh',
+              ),
+              _heroFooterMetric(
+                'This month',
+                '${plant.monthlyEnergy.toStringAsFixed(1)} kWh',
+              ),
+              _heroFooterMetric(
+                'Lifetime',
+                '${plant.totalEnergy.toStringAsFixed(1)} kWh',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _heroMetric(
+    IconData icon,
+    String label,
+    String value,
+    String helper,
+    Color color,
+  ) {
+    return Row(
+      children: [
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Icon(icon, size: 16, color: color),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(color: _detailMuted, fontSize: 9),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  color: _detailInk,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Text(
+                helper,
+                style: const TextStyle(color: _detailMuted, fontSize: 8),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSoftTrend() {
+    final values = _powerSamples.isEmpty
+        ? [0.35, 0.55, 0.42, 0.72, 0.5, 0.78, 0.62]
+        : _powerSamples.take(10).toList();
+    final maxValue = values.fold<double>(
+      1,
+      (max, value) => value > max ? value : max,
+    );
+    return SizedBox(
+      height: 76,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (var i = 0; i < values.length; i++)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: FractionallySizedBox(
+                  heightFactor: (values[i] / maxValue).clamp(0.16, 1.0),
+                  alignment: Alignment.bottomCenter,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: i == values.length - 2
+                          ? _detailPurple
+                          : _huaweiBlue.withValues(alpha: 0.24),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _heroFooterMetric(String label, String value) {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 5),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: _detailInk,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(color: _detailMuted, fontSize: 9),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _heroStatus(String status) {
+    final online = status.toLowerCase() == 'online';
+    final color = online ? _detailGreen : AppColors.warning;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.circle, size: 7, color: color),
+          const SizedBox(width: 5),
+          Text(
+            status,
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _periodPill(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        border: Border.all(color: AppColors.surfaceBorder),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: _detailMuted,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 4),
+          const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: 14,
+            color: _detailMuted,
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _compactNumber(double value) {
+    if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
+    if (value >= 1000) return '${(value / 1000).toStringAsFixed(0)}K';
+    return value.toStringAsFixed(0);
+  }
+
   Widget _buildEnergySummary(HuaweiPlant plant) {
     return Row(
       children: [
@@ -464,9 +839,36 @@ class _HuaweiPlantDetailScreenState extends State<HuaweiPlantDetailScreen> {
               ],
             ),
           ),
+          IconButton(
+            tooltip: 'Navigasi ke plant',
+            onPressed: location == 'Koordinat plant belum tersedia'
+                ? null
+                : () => _openMapLocation(
+                    plant.latitude,
+                    plant.longitude,
+                    plant.address,
+                  ),
+            icon: const Icon(Icons.near_me_rounded, color: _huaweiBlue),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _openMapLocation(
+    String latitude,
+    String longitude,
+    String address,
+  ) async {
+    final destination = latitude.isNotEmpty && longitude.isNotEmpty
+        ? '$latitude,$longitude'
+        : address;
+    if (destination.trim().isEmpty) return;
+    final uri = Uri.https('www.google.com', '/maps/dir/', {
+      'api': '1',
+      'destination': destination,
+    });
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   Widget _buildDeviceCard(HuaweiDevice device) {
