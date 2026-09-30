@@ -7,6 +7,7 @@ import '../../config/api_base_urls.dart';
 import '../../models/growatt/growatt_device.dart';
 import '../../models/growatt/growatt_plant.dart';
 import '../../models/growatt/growatt_power_point.dart';
+import '../offline_cache_service.dart';
 
 class GrowattMonitoringService {
   final List<String> _baseUrls;
@@ -86,6 +87,10 @@ class GrowattMonitoringService {
 
         rememberMonitoringBaseUrl(baseUrl);
         _lastGoodData[cacheKey] = decoded['data'];
+        await OfflineCacheService.writeJson(
+          'growatt:$cacheKey',
+          decoded['data'],
+        );
         return decoded['data'];
       } catch (e) {
         lastError = e;
@@ -95,6 +100,9 @@ class GrowattMonitoringService {
     if (_lastGoodData.containsKey(cacheKey)) {
       return _lastGoodData[cacheKey];
     }
+
+    final offline = await OfflineCacheService.readJson('growatt:$cacheKey');
+    if (offline != null) return offline;
 
     if (lastError is GrowattMonitoringException) throw lastError;
     throw GrowattMonitoringException('Growatt data unavailable: $lastError');

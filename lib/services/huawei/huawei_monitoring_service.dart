@@ -7,6 +7,7 @@ import '../../config/api_base_urls.dart';
 import '../../models/huawei/huawei_alarm.dart';
 import '../../models/huawei/huawei_device.dart';
 import '../../models/huawei/huawei_plant.dart';
+import '../offline_cache_service.dart';
 
 enum MonitoringSourceFilter { all, solis, huawei }
 
@@ -114,6 +115,10 @@ class HuaweiMonitoringService {
 
         rememberMonitoringBaseUrl(baseUrl);
         _lastGoodData[cacheKey] = decoded['data'];
+        await OfflineCacheService.writeJson(
+          'huawei:$cacheKey',
+          decoded['data'],
+        );
         return decoded['data'];
       } catch (e) {
         lastError = e;
@@ -123,6 +128,9 @@ class HuaweiMonitoringService {
     if (_lastGoodData.containsKey(cacheKey)) {
       return _lastGoodData[cacheKey];
     }
+
+    final offline = await OfflineCacheService.readJson('huawei:$cacheKey');
+    if (offline != null) return offline;
 
     if (lastError is HuaweiMonitoringException) throw lastError;
     throw HuaweiMonitoringException('Huawei data unavailable: $lastError');

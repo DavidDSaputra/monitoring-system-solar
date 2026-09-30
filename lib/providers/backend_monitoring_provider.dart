@@ -13,6 +13,7 @@ import '../models/monitoring_overview.dart';
 import '../models/paged_station_result.dart';
 import '../models/station.dart';
 import '../models/station_detail.dart';
+import '../services/offline_cache_service.dart';
 import 'monitoring_provider.dart';
 
 class BackendMonitoringProvider
@@ -168,6 +169,7 @@ class BackendMonitoringProvider
     Map<String, String>? query,
   ]) async {
     Object? lastError;
+    final cacheKey = 'backend:$path:${jsonEncode(query ?? const {})}';
 
     for (final baseUrl in prioritizeMonitoringBaseUrls(_baseUrls)) {
       for (var attempt = 0; attempt < 2; attempt++) {
@@ -207,7 +209,10 @@ class BackendMonitoringProvider
 
           final data = decoded['data'];
           rememberMonitoringBaseUrl(baseUrl);
-          if (data is Map<String, dynamic>) return data;
+          if (data is Map<String, dynamic>) {
+            await OfflineCacheService.writeJson(cacheKey, data);
+            return data;
+          }
           return <String, dynamic>{};
         } catch (e) {
           lastError = e;
@@ -216,6 +221,11 @@ class BackendMonitoringProvider
           }
         }
       }
+    }
+
+    final offline = await OfflineCacheService.readJson(cacheKey);
+    if (offline is Map) {
+      return Map<String, dynamic>.from(offline);
     }
 
     if (lastError is BackendMonitoringException) {
