@@ -5,8 +5,10 @@ require_once __DIR__ . '/providers/provider_factory.php';
 require_once __DIR__ . '/providers/solis/normalizer.php';
 require_once __DIR__ . '/services/huawei/huaweiStationService.php';
 require_once __DIR__ . '/services/huawei/huaweiKpiService.php';
+require_once __DIR__ . '/services/huawei/huaweiDeviceService.php';
 require_once __DIR__ . '/adapters/huawei/huaweiAdapter.php';
 require_once __DIR__ . '/services/growatt/growattPlantService.php';
+require_once __DIR__ . '/services/growatt/growattDeviceService.php';
 require_once __DIR__ . '/adapters/growatt/growattAdapter.php';
 
 $target = PHP_SAPI === 'cli'
@@ -146,6 +148,25 @@ function warm_huawei_plants(bool $forceRefresh = false): void
         'cached' => false,
         'data' => $plants,
     ]);
+
+    $devices = [];
+    foreach (array_chunk($plantCodes, 50) as $chunk) {
+        try {
+            $result = huawei_get_dev_list(implode(',', $chunk), $forceRefresh);
+            foreach (($result['records'] ?? []) as $record) {
+                if (is_array($record)) {
+                    $devices[] = huawei_normalize_device($record);
+                }
+            }
+        } catch (Throwable) {
+            // A provider device-list failure must not block plant refreshes.
+        }
+    }
+    api_cache_put('monitoring:devices:huawei', [
+        'success' => true,
+        'source' => 'huawei',
+        'data' => $devices,
+    ]);
 }
 
 function warm_growatt_plants(bool $forceRefresh = false): void
@@ -187,6 +208,21 @@ function warm_growatt_plants(bool $forceRefresh = false): void
         'hydrated' => true,
         'data' => $plants,
     ]);
+
+    try {
+        $deviceResult = growatt_get_device_list_v4(1, $forceRefresh);
+        $devices = array_values(array_map(
+            static fn (array $record): array => growatt_normalize_device($record),
+            array_values(array_filter($deviceResult['records'] ?? [], 'is_array'))
+        ));
+        api_cache_put('monitoring:devices:growatt', [
+            'success' => true,
+            'source' => 'growatt',
+            'data' => $devices,
+        ]);
+    } catch (Throwable) {
+        // Keep the last device snapshot when Growatt refresh is unavailable.
+    }
 }
 
 function normalized_overview_payload(string $providerId, array $overview): array

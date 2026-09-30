@@ -139,6 +139,7 @@ function growatt_normalize_device(array $device): array
         'deviceId' => growatt_text(growatt_pick($device, ['device_id', 'deviceId', 'id']), $sn),
         'deviceName' => growatt_text(growatt_pick($device, ['name', 'model', 'alias']), $sn !== '' ? $sn : 'Growatt Device'),
         'deviceType' => $type,
+        'plantCode' => growatt_text(growatt_pick($device, ['plant_id', 'plantId', 'plant_code', 'plantCode'])),
         'deviceSn' => $sn,
         'dataloggerSn' => growatt_text(growatt_pick($device, ['datalogger_sn', 'dataloggerSn', 'datalogSn'])),
         'status' => growatt_status(growatt_pick($device, ['status', 'status_text', 'state']), $lostBool),

@@ -106,6 +106,7 @@ function huawei_normalize_device(array $device): array
         'deviceId' => (string) huawei_pick($device, ['devId', 'deviceId', 'id'], ''),
         'deviceName' => (string) huawei_pick($device, ['devName', 'deviceName', 'name'], 'Unknown Device'),
         'deviceType' => (string) huawei_pick($device, ['devTypeId', 'deviceType', 'type'], ''),
+        'deviceSn' => (string) huawei_pick($device, ['esnCode', 'esn', 'sn', 'deviceSn'], ''),
         'plantCode' => (string) huawei_pick($device, ['plantCode', 'stationCode'], ''),
         'status' => huawei_status(huawei_pick($device, ['status', 'runningStatus'])),
         'raw' => $device,
