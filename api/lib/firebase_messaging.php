@@ -117,16 +117,16 @@ function fcm_send_topic(
             ],
             'data' => $stringData,
             'android' => [
-                'priority' => 'high',
+                'priority' => 'normal',
+                'collapse_key' => 'solarview-alert-digest',
                 'notification' => [
-                    'channel_id' => 'solar_alerts',
-                    'sound' => 'default',
+                    'channel_id' => 'solar_alerts_quiet',
+                    'tag' => (string) ($stringData['notificationTag'] ?? 'solarview_alerts'),
                 ],
             ],
             'apns' => [
                 'payload' => [
                     'aps' => [
-                        'sound' => 'default',
                         'content-available' => 1,
                     ],
                 ],

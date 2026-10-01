@@ -18,9 +18,15 @@ try {
     $previousStates = is_array($previousPayload['entities'] ?? null)
         ? $previousPayload['entities']
         : [];
+    $throttlePayload = api_cache_get_stale('push:notification-throttle:v1', 31536000);
+    $notificationThrottle = is_array($throttlePayload['plants'] ?? null)
+        ? $throttlePayload['plants']
+        : [];
     $nextStates = [];
     $sent = [];
+    $suppressed = [];
     $errors = [];
+    $pendingEvents = [];
 
     foreach ($entities as $key => $entity) {
         $status = strtolower(trim((string) ($entity['status'] ?? 'unknown')));
@@ -46,31 +52,31 @@ try {
             incident_open($entity, $displayStatus);
         } elseif ($previous !== null && $isIssue && !$wasIssue) {
             $incident = incident_open($entity, $displayStatus);
-            try {
-                $response = push_send_entity_notification($entity, $incident, $displayStatus, false);
-                $sent[] = ['entity' => $entity['entityName'], 'event' => 'issue', 'response' => $response];
-                $notificationSent = true;
-            } catch (Throwable $error) {
-                $errors[] = ['entity' => $entity['entityName'], 'message' => $error->getMessage()];
-            }
+            $pendingEvents[] = [
+                'kind' => 'issue',
+                'key' => $key,
+                'entity' => $entity,
+                'incident' => $incident,
+                'status' => $displayStatus,
+            ];
         } elseif ($previous !== null && $isIssue && !$wasNotified) {
             $incident = incident_open($entity, $displayStatus);
-            try {
-                $response = push_send_entity_notification($entity, $incident, $displayStatus, false);
-                $sent[] = ['entity' => $entity['entityName'], 'event' => 'issue-retry', 'response' => $response];
-                $notificationSent = true;
-            } catch (Throwable $error) {
-                $errors[] = ['entity' => $entity['entityName'], 'message' => $error->getMessage()];
-            }
+            $pendingEvents[] = [
+                'kind' => 'issue',
+                'key' => $key,
+                'entity' => $entity,
+                'incident' => $incident,
+                'status' => $displayStatus,
+            ];
         } elseif ($previous !== null && !$isIssue && $status === 'online' && $wasIssue) {
             $incident = incident_resolve($key);
-            try {
-                $response = push_send_entity_notification($entity, $incident ?? [], 'online', true);
-                $sent[] = ['entity' => $entity['entityName'], 'event' => 'recovered', 'response' => $response];
-                $notificationSent = true;
-            } catch (Throwable $error) {
-                $errors[] = ['entity' => $entity['entityName'], 'message' => $error->getMessage()];
-            }
+            $pendingEvents[] = [
+                'kind' => 'recovered',
+                'key' => $key,
+                'entity' => $entity,
+                'incident' => $incident ?? [],
+                'status' => 'online',
+            ];
         }
 
         $nextStates[$key] = [
@@ -91,8 +97,66 @@ try {
         ];
     }
 
+    $eventsByPlant = [];
+    foreach ($pendingEvents as $event) {
+        $entity = $event['entity'];
+        $plantKey = (string) $entity['source'] . ':' . (string) $entity['plantCode'];
+        $eventsByPlant[$plantKey][] = $event;
+    }
+
+    foreach ($eventsByPlant as $plantKey => $events) {
+        $hasIssue = count(array_filter(
+            $events,
+            static fn (array $event): bool => $event['kind'] === 'issue'
+        )) > 0;
+        $hasRecovery = count(array_filter(
+            $events,
+            static fn (array $event): bool => $event['kind'] === 'recovered'
+        )) > 0;
+        $lastSentAt = (int) ($notificationThrottle[$plantKey] ?? 0);
+        $cooldown = push_notification_cooldown_seconds();
+
+        // Recovery is useful immediately, while repeated issue updates for the
+        // same plant are held for a short digest window to avoid phone spam.
+        if ($hasIssue && !$hasRecovery && $lastSentAt > 0 && time() - $lastSentAt < $cooldown) {
+            $suppressed[] = [
+                'plant' => $events[0]['entity']['plantName'],
+                'count' => count($events),
+                'cooldownSecondsRemaining' => max(0, $cooldown - (time() - $lastSentAt)),
+            ];
+            continue;
+        }
+
+        try {
+            $response = push_send_digest_notification($events);
+            $sent[] = [
+                'plant' => $events[0]['entity']['plantName'],
+                'count' => count($events),
+                'response' => $response,
+            ];
+            foreach ($events as $event) {
+                $key = (string) $event['key'];
+                if (isset($nextStates[$key]) && $event['kind'] === 'issue') {
+                    $nextStates[$key]['notifiedIssue'] = true;
+                }
+            }
+            if ($hasIssue) {
+                $notificationThrottle[$plantKey] = time();
+            }
+        } catch (Throwable $error) {
+            $errors[] = [
+                'plant' => $events[0]['entity']['plantName'],
+                'message' => $error->getMessage(),
+            ];
+        }
+    }
+
     api_cache_put('push:entity-state:v3', [
         'entities' => $nextStates,
+        'checkedAt' => gmdate(DATE_ATOM),
+    ]);
+    api_cache_put('push:notification-throttle:v1', [
+        'plants' => $notificationThrottle,
         'checkedAt' => gmdate(DATE_ATOM),
     ]);
 
@@ -102,6 +166,8 @@ try {
         'checkedPlants' => count($plants),
         'checkedDevices' => $deviceCount,
         'sent' => $sent,
+        'suppressed' => $suppressed,
+        'notificationMode' => 'plant_digest',
         'errors' => $errors,
         'baselineCreated' => count($previousStates) === 0,
     ], count($errors) === 0 ? 200 : 502);
@@ -109,31 +175,70 @@ try {
     api_lock_release($lock);
 }
 
-function push_send_entity_notification(array $entity, array $incident, string $status, bool $recovered): array
+function push_send_digest_notification(array $events): array
 {
-    $entityLabel = push_entity_label((string) $entity['entityType']);
-    $duration = (int) ($incident['durationSeconds'] ?? 0);
-    $priority = (string) ($incident['priority'] ?? 'P2');
-    $title = $recovered ? "{$entityLabel} kembali normal" : "{$priority} · {$entityLabel} perlu diperiksa";
-    $body = $recovered
-        ? sprintf('%s di %s pulih%s.', $entity['entityName'], $entity['plantName'], $duration > 0 ? ' setelah ' . push_duration($duration) : '')
-        : sprintf('%s di %s berstatus %s. SLA %s menit.', $entity['entityName'], $entity['plantName'], strtoupper($status), $incident['slaMinutes'] ?? 60);
+    $first = $events[0];
+    $entity = $first['entity'];
+    $issues = array_values(array_filter(
+        $events,
+        static fn (array $event): bool => $event['kind'] === 'issue'
+    ));
+    $recoveries = array_values(array_filter(
+        $events,
+        static fn (array $event): bool => $event['kind'] === 'recovered'
+    ));
+    $priority = push_digest_priority($issues);
+    $issueCount = count($issues);
+    $recoveryCount = count($recoveries);
+    $title = $issueCount > 0
+        ? "{$priority} · {$entity['plantName']}"
+        : "{$entity['plantName']} kembali normal";
+
+    if ($issueCount > 0) {
+        $body = $issueCount === 1
+            ? sprintf('%s perlu diperiksa. Buka untuk melihat detail alarm.', $issues[0]['entity']['entityName'])
+            : sprintf('%d perangkat perlu diperiksa%s. Buka untuk melihat detail alarm.', $issueCount, $recoveryCount > 0 ? " · {$recoveryCount} pulih" : '');
+    } else {
+        $body = sprintf('%d perangkat pulih. Buka untuk melihat ringkasan plant.', $recoveryCount);
+    }
 
     return fcm_send_topic($title, $body, [
-        'type' => $entity['entityType'] === 'plant' ? 'plant_status' : 'device_status',
+        'type' => 'plant_status',
         'route' => 'plant_detail',
-        'event' => $recovered ? 'recovered' : 'issue',
-        'tab' => $recovered ? 'overview' : 'alarm',
+        'event' => $issueCount > 0 ? 'issue' : 'recovered',
+        'tab' => $issueCount > 0 ? 'alarm' : 'overview',
         'source' => $entity['source'],
         'plantCode' => $entity['plantCode'],
         'plantName' => $entity['plantName'],
-        'entityType' => $entity['entityType'],
-        'entityId' => $entity['entityId'],
-        'entityName' => $entity['entityName'],
-        'status' => $status,
+        'entityType' => $issueCount === 1 ? $issues[0]['entity']['entityType'] : 'plant',
+        'entityId' => $issueCount === 1 ? $issues[0]['entity']['entityId'] : $entity['plantCode'],
+        'entityName' => $issueCount === 1 ? $issues[0]['entity']['entityName'] : $entity['plantName'],
+        'status' => $issueCount > 0 ? $issues[0]['status'] : 'online',
         'priority' => $priority,
-        'incidentId' => (string) ($incident['id'] ?? ''),
+        'incidentId' => $issueCount === 1 ? (string) ($issues[0]['incident']['id'] ?? '') : '',
+        'summaryCount' => count($events),
+        'issueCount' => $issueCount,
+        'recoveredCount' => $recoveryCount,
+        'notificationTag' => 'solarview_' . sha1((string) $entity['source'] . ':' . (string) $entity['plantCode']),
     ]);
+}
+
+function push_digest_priority(array $issues): string
+{
+    foreach (['P1', 'P2', 'P3'] as $priority) {
+        foreach ($issues as $event) {
+            if (strtoupper((string) ($event['incident']['priority'] ?? 'P2')) === $priority) {
+                return $priority;
+            }
+        }
+    }
+    return 'P2';
+}
+
+function push_notification_cooldown_seconds(): int
+{
+    $configured = (int) api_env('PUSH_NOTIFICATION_COOLDOWN_SECONDS', '900');
+    return max(300, min(3600, $configured));
 }
 
 function push_current_plants(): array

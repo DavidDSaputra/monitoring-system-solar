@@ -90,8 +90,8 @@ class PushNotificationService {
   PushNotificationService._();
 
   static const _enabledStorageKey = 'solarview.push.enabled';
-  static const _channelId = 'solar_alerts';
-  static const _channelName = 'Solar alerts';
+  static const _channelId = 'solar_alerts_quiet';
+  static const _channelName = 'SolarView alerts';
   static const _channelDescription =
       'Peringatan plant, inverter, datalogger, dan gangguan produksi.';
 
@@ -136,7 +136,7 @@ class PushNotificationService {
           .setForegroundNotificationPresentationOptions(
             alert: defaultTargetPlatform == TargetPlatform.iOS,
             badge: true,
-            sound: true,
+            sound: false,
           );
 
       _messageSubscription = FirebaseMessaging.onMessage.listen(
@@ -281,9 +281,9 @@ class PushNotificationService {
       _channelId,
       _channelName,
       description: _channelDescription,
-      importance: Importance.max,
-      playSound: true,
-      enableVibration: true,
+      importance: Importance.defaultImportance,
+      playSound: false,
+      enableVibration: false,
     );
     await _localNotifications
         .resolvePlatformSpecificImplementation<
@@ -301,8 +301,11 @@ class PushNotificationService {
       return;
     }
 
+    final source = message.data['source']?.toString() ?? 'solarview';
+    final plantCode = message.data['plantCode']?.toString() ?? 'alerts';
+    final notificationId = '$source:$plantCode'.hashCode & 0x7fffffff;
     await _localNotifications.show(
-      id: message.messageId?.hashCode ?? DateTime.now().millisecondsSinceEpoch,
+      id: notificationId,
       title: title ?? 'SolarView',
       body: body,
       payload: jsonEncode(message.data),
@@ -311,9 +314,13 @@ class PushNotificationService {
           _channelId,
           _channelName,
           channelDescription: _channelDescription,
-          importance: Importance.max,
-          priority: Priority.high,
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
           icon: 'ic_stat_solarview',
+          groupKey: 'solarview_alerts',
+          onlyAlertOnce: true,
+          playSound: false,
+          enableVibration: false,
         ),
       ),
     );
